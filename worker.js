@@ -34,6 +34,9 @@ class JavaCodeAnalyzer {
     suggestions.push(...security.suggestions);
     issues.push(...security.issues.map(i => `🔒 [${i.severity}] ${i.name}: ${i.issue}`));
     
+    // 5. Java 8 최적화 제안 (실제 코드 기반)
+    const java8Fixes = this.findJava8Optimizations(code);
+    
     return {
       explanation: this.generateExplanation(code, filename, structure),
       strengths: strengths.length > 0 ? strengths.join('\n\n') : '코드의 좋은 점을 찾는 중...',
@@ -48,7 +51,7 @@ class JavaCodeAnalyzer {
         code_fixes: security.codeFixes || []
       },
       full_review: this.generateFullReview(code, filename, structure, issues, suggestions, strengths, secureCodingIssues),
-      code_fixes: security.codeFixes || []
+      code_fixes: [...(security.codeFixes || []), ...java8Fixes]
     };
   }
   
@@ -813,6 +816,77 @@ list.stream().forEach(item -> {
     return fixedCodeBlocks.map(block => 
       `// 라인 ${block.line} 수정:\n// Before:\n${block.before}\n\n// After:\n${block.after}`
     ).join('\n\n---\n\n');
+  }
+  
+  findJava8Optimizations(code) {
+    const lines = code.split('\n');
+    const optimizations = [];
+    
+    // 1. 전통적인 for문을 Stream API로 변환
+    lines.forEach((line, index) => {
+      const lineNum = index + 1;
+      const trimmedLine = line.trim();
+      
+      // for (int i = 0; i < list.size(); i++) 패턴 찾기
+      if (trimmedLine.match(/for\s*\(\s*int\s+\w+\s*=\s*0/)) {
+        const nextLines = lines.slice(index, Math.min(index + 10, lines.length)).join('\n');
+        if (nextLines.includes('.size()') && nextLines.includes('.get(')) {
+          // 리스트 변수명 찾기
+          const listMatch = trimmedLine.match(/<\s*(\w+)\s*>/);
+          const listVarMatch = nextLines.match(/(\w+)\.size\(\)/);
+          if (listVarMatch) {
+            const listVar = listVarMatch[1];
+            const before = lines.slice(index, Math.min(index + 5, lines.length)).join('\n');
+            const after = `// Java 8 Stream API 사용\n${listVar}.stream()\n    .forEach(item -> {\n        // 처리 로직\n    });`;
+            optimizations.push({
+              id: 'J8-001',
+              name: '전통적인 for문을 Stream API로 변환',
+              severity: 'MEDIUM',
+              before: before,
+              after: after,
+              explanation: `라인 ${lineNum}의 전통적인 for문을 Java 8 Stream API로 변환하면 더 간결하고 함수형 프로그래밍 스타일이 됩니다.`,
+              lines: [{ line: lineNum, code: trimmedLine }]
+            });
+          }
+        }
+      }
+      
+      // 2. 문자열 연결을 StringBuilder나 String.join으로
+      if (trimmedLine.match(/["'][^"']*"\s*\+\s*["']/)) {
+        const before = trimmedLine;
+        const after = `// Java 8 String.join() 사용\nString result = String.join("", "part1", "part2", "part3");`;
+        optimizations.push({
+          id: 'J8-002',
+          name: '문자열 연결 최적화',
+          severity: 'LOW',
+          before: before,
+          after: after,
+          explanation: `라인 ${lineNum}의 문자열 연결을 Java 8 String.join() 또는 StringBuilder로 최적화할 수 있습니다.`,
+          lines: [{ line: lineNum, code: trimmedLine }]
+        });
+      }
+      
+      // 3. null 체크를 Optional로
+      if (trimmedLine.match(/if\s*\(\s*\w+\s*!=\s*null\s*\)/)) {
+        const varMatch = trimmedLine.match(/if\s*\(\s*(\w+)\s*!=\s*null/);
+        if (varMatch) {
+          const varName = varMatch[1];
+          const before = trimmedLine;
+          const after = `// Java 8 Optional 사용\nOptional.ofNullable(${varName}).ifPresent(value -> {\n    // 처리 로직\n});`;
+          optimizations.push({
+            id: 'J8-003',
+            name: 'null 체크를 Optional로 변환',
+            severity: 'MEDIUM',
+            before: before,
+            after: after,
+            explanation: `라인 ${lineNum}의 null 체크를 Java 8 Optional로 변환하면 더 안전하고 함수형 스타일이 됩니다.`,
+            lines: [{ line: lineNum, code: trimmedLine }]
+          });
+        }
+      }
+    });
+    
+    return optimizations;
   }
   
   getSecureCodingGuidelines() {
