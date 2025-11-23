@@ -321,7 +321,7 @@ public void processFile(String filename) throws IOException {
     }
 }
 
-// Java 8 Optional과 함께
+// Optional과 함께
 public Optional<String> readFileSafely(String filename) {
     try (BufferedReader reader = Files.newBufferedReader(Paths.get(filename))) {
         return Optional.of(reader.lines().collect(Collectors.joining()));
@@ -356,7 +356,7 @@ if (Objects.equals(str, "value")) {
     // ...
 }
 
-// Java 8 Optional 활용
+// Optional 활용
 Optional<String> optionalStr = Optional.ofNullable(str);
 if (optionalStr.filter(s -> s.equals("value")).isPresent()) {
     // ...
@@ -947,7 +947,7 @@ if (!input.matches("^-?[0-9]+$")) {
 }
 int value = Integer.parseInt(input);
 
-// Java 8 Optional 활용
+// Optional 활용
 Optional<Integer> value = Optional.ofNullable(input)
     .filter(s -> s.matches("^-?[0-9]+$"))
     .map(Integer::parseInt);`,
@@ -1234,7 +1234,7 @@ try {
     // 복구 로직 또는 재시도
 }
 
-// Java 8 Optional과 함께
+// Optional과 함께
 public Optional<Result> processSafely() {
     try {
         return Optional.of(processData());
@@ -1349,7 +1349,7 @@ public class SecurityAspect {
     }
 }
 
-// Java 8 메서드 레퍼런스 활용
+// 메서드 레퍼런스 활용
 private boolean hasRole(String role) {
     return getCurrentUser().getRoles().stream()
         .anyMatch(r -> r.getName().equals(role));
@@ -1389,7 +1389,7 @@ import org.slf4j.LoggerFactory;
 private static final Logger logger = LoggerFactory.getLogger(UserService.class);
 logger.debug("사용자 정보 조회: user_id={}", user_id);
 
-// Java 8 Stream을 활용한 마스킹
+// Stream을 활용한 마스킹
 private String maskCardNumber(String cardNumber) {
     if (cardNumber == null || cardNumber.length() < 8) {
         return "****";
@@ -1432,7 +1432,7 @@ logger.info("일반 정보");
 logger.warn("경고");
 logger.error("오류", exception);
 
-// Java 8 람다를 활용한 조건부 로깅
+// 람다를 활용한 조건부 로깅
 if (logger.isDebugEnabled()) {
     logger.debug("복잡한 계산 결과: {}", expensiveCalculation());
 }`,
@@ -1480,7 +1480,7 @@ public class DatabaseConfig {
     }
 }
 
-// Java 8 Optional 활용
+// Optional 활용
 private String getApiKey() {
     return Optional.ofNullable(System.getenv("API_KEY"))
         .orElseThrow(() -> new IllegalStateException("API_KEY가 설정되지 않았습니다."));
@@ -1496,7 +1496,7 @@ if (apiKey == null || apiKey.isEmpty()) {
     throw new IllegalStateException("API_KEY 환경 변수가 설정되지 않았습니다.");
 }
 
-// 3. 또는 Java 8 Optional 사용
+// 3. 또는 Optional 사용
 private String getApiKey() {
     return Optional.ofNullable(System.getenv("API_KEY"))
         .orElseThrow(() -> new IllegalStateException("API_KEY가 설정되지 않았습니다."));
@@ -1540,7 +1540,7 @@ CloseableHttpClient httpClient = HttpClients.custom()
     .setSSLContext(sslContext)
     .build();
 
-// Java 8 CompletableFuture와 함께
+// CompletableFuture와 함께
 CompletableFuture<String> future = CompletableFuture.supplyAsync(() -> {
     // HTTPS 요청
     return httpsRequest(url);
