@@ -690,34 +690,34 @@ Optional<Integer> value = Optional.ofNullable(input)
           name: 'SQL Injection 방지',
           check: (code) => code.includes('Statement') && code.includes('executeQuery') && !code.includes('PreparedStatement'),
           issue: 'Statement를 사용하여 SQL Injection 위험이 있습니다.',
-          suggestion: `// Java 8 방식 - PreparedStatement 사용
-// ❌ 위험한 코드
-String sql = "SELECT * FROM users WHERE id = " + userId;
-Statement stmt = conn.createStatement();
-ResultSet rs = stmt.executeQuery(sql);
-
-// ✅ 안전한 코드 - PreparedStatement
-String sql = "SELECT * FROM users WHERE id = ?";
-PreparedStatement pstmt = conn.prepareStatement(sql);
-pstmt.setInt(1, userId);
-ResultSet rs = pstmt.executeQuery();
-
-// Java 8 try-with-resources와 함께
-try (Connection conn = dataSource.getConnection();
-     PreparedStatement pstmt = conn.prepareStatement(sql)) {
-    pstmt.setInt(1, userId);
-    try (ResultSet rs = pstmt.executeQuery()) {
-        while (rs.next()) {
-            // 결과 처리
-        }
-    }
-}
-
-// MyBatis 사용 시
-// #{userId} 사용 (${userId}는 사용 금지)
-// <select id="getUser" resultType="User">
-//     SELECT * FROM users WHERE id = #{userId}
-// </select>`,
+          suggestion: '// Java 8 방식 - PreparedStatement 사용\n' +
+'// ❌ 위험한 코드\n' +
+'String sql = "SELECT * FROM users WHERE id = " + user_id;\n' +
+'Statement stmt = conn.createStatement();\n' +
+'ResultSet rs = stmt.executeQuery(sql);\n' +
+'\n' +
+'// ✅ 안전한 코드 - PreparedStatement\n' +
+'String sql = "SELECT * FROM users WHERE id = ?";\n' +
+'PreparedStatement pstmt = conn.prepareStatement(sql);\n' +
+'pstmt.setInt(1, user_id);\n' +
+'ResultSet rs = pstmt.executeQuery();\n' +
+'\n' +
+'// Java 8 try-with-resources와 함께\n' +
+'try (Connection conn = dataSource.getConnection();\n' +
+'     PreparedStatement pstmt = conn.prepareStatement(sql)) {\n' +
+'    pstmt.setInt(1, user_id);\n' +
+'    try (ResultSet rs = pstmt.executeQuery()) {\n' +
+'        while (rs.next()) {\n' +
+'            // 결과 처리\n' +
+'        }\n' +
+'    }\n' +
+'}\n' +
+'\n' +
+'// MyBatis 사용 시\n' +
+'// #{} 사용 (문자열 연결은 사용 금지)\n' +
+'// <select id="getUser" resultType="User">\n' +
+'//     SELECT * FROM users WHERE id = #{user_id}\n' +
+'// </select>',
           severity: 'CRITICAL'
         },
         {
@@ -1119,7 +1119,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 private static final Logger logger = LoggerFactory.getLogger(UserService.class);
-logger.debug("사용자 정보 조회: userId={}", userId);
+logger.debug("사용자 정보 조회: user_id={}", user_id);
 
 // Java 8 Stream을 활용한 마스킹
 private String maskCardNumber(String cardNumber) {
@@ -1146,12 +1146,12 @@ public class UserService {
     private static final Logger logger = LoggerFactory.getLogger(UserService.class);
     
     public void deleteUser(Long userId) {
-        logger.info("사용자 삭제 시작: userId={}", userId);
+        logger.info("사용자 삭제 시작: user_id={}", user_id);
         try {
-            userRepository.delete(userId);
-            logger.info("사용자 삭제 완료: userId={}", userId);
+            userRepository.delete(user_id);
+            logger.info("사용자 삭제 완료: user_id={}", user_id);
         } catch (Exception e) {
-            logger.error("사용자 삭제 실패: userId={}", userId, e);
+            logger.error("사용자 삭제 실패: user_id={}", user_id, e);
             throw new ServiceException("사용자 삭제 중 오류 발생", e);
         }
     }
