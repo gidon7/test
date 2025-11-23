@@ -143,6 +143,7 @@ function displayResults(data) {
 
     // AI 리뷰 표시
     const review = data.ai_review;
+    const secureCoding = data.ai_review.secure_coding;
     
     aiReview.innerHTML = `
         <h2>🤖 코드 리뷰</h2>
@@ -166,20 +167,42 @@ function displayResults(data) {
         ` : ''}
         ${review.suggestions ? `
             <div class="review-section">
-                <h3>💡 개선 제안</h3>
-                <p>${review.suggestions}</p>
+                <h3>💡 상세 개선 제안 (Java 8 최적화)</h3>
+                <div style="white-space: pre-wrap; font-family: 'Courier New', monospace; background: #f5f5f5; padding: 15px; border-radius: 5px; overflow-x: auto;">${review.suggestions}</div>
+            </div>
+        ` : ''}
+        ${secureCoding ? `
+            <div class="review-section" style="border-left-color: #f44336;">
+                <h3>🔒 시큐어 코딩 체크 (CWEAP 가이드)</h3>
+                <div style="margin-bottom: 15px;">
+                    <strong>체크 항목:</strong> ${secureCoding.total_checked}개<br>
+                    <strong>발견된 이슈:</strong> ${secureCoding.found_issues}개<br>
+                    <strong>준수율:</strong> ${secureCoding.compliance_rate}%
+                </div>
+                ${secureCoding.issues && secureCoding.issues.length > 0 ? `
+                    <div style="background: #fff3cd; padding: 10px; border-radius: 5px; margin-top: 10px;">
+                        <strong>보안 이슈:</strong>
+                        <ul style="margin-top: 10px;">
+                            ${secureCoding.issues.map(issue => `
+                                <li>
+                                    <strong>[${issue.severity}]</strong> ${issue.name}: ${issue.issue}
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                ` : '<p style="color: green;">✅ 보안 이슈가 발견되지 않았습니다.</p>'}
             </div>
         ` : ''}
         ${review.best_practices ? `
             <div class="review-section">
-                <h3>⭐ Best Practice</h3>
+                <h3>⭐ Java 8 Best Practice</h3>
                 <p>${review.best_practices}</p>
             </div>
         ` : ''}
         ${review.full_review ? `
             <div class="review-section">
                 <h3>📄 전체 리뷰</h3>
-                <p>${review.full_review}</p>
+                <div style="white-space: pre-wrap; font-family: 'Courier New', monospace; background: #f5f5f5; padding: 15px; border-radius: 5px; overflow-x: auto; max-height: 500px; overflow-y: auto;">${review.full_review}</div>
             </div>
         ` : ''}
     `;

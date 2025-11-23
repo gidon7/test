@@ -1,4 +1,5 @@
 // Cloudflare Workers용 Java 코드 리뷰 시스템
+// Java 8 최적화 + CWEAP 시큐어 코딩 가이드 49개 항목
 
 // 코드 분석기 (규칙 기반, API 키 불필요)
 class JavaCodeAnalyzer {
@@ -7,33 +8,65 @@ class JavaCodeAnalyzer {
     const issues = [];
     const suggestions = [];
     const strengths = [];
+    const secureCodingIssues = [];
     
     const structure = this.analyzeStructure(code);
+    
+    // 1. 코드 품질 체크 (Java 8 최적화)
     const quality = this.checkCodeQuality(code, lines);
     issues.push(...quality.issues);
     suggestions.push(...quality.suggestions);
     strengths.push(...quality.strengths);
     
+    // 2. Best Practice 체크 (Java 8)
     const bestPractices = this.checkBestPractices(code, lines);
     issues.push(...bestPractices.issues);
     suggestions.push(...bestPractices.suggestions);
     
+    // 3. 성능 체크 (Java 8)
     const performance = this.checkPerformance(code);
     issues.push(...performance.issues);
     suggestions.push(...performance.suggestions);
     
-    const security = this.checkSecurity(code);
-    issues.push(...security.issues);
+    // 4. 시큐어 코딩 가이드 체크 (CWEAP 49개 항목)
+    const security = this.checkSecureCoding(code);
+    secureCodingIssues.push(...security.issues);
     suggestions.push(...security.suggestions);
+    issues.push(...security.issues.map(i => `🔒 [${i.severity}] ${i.name}: ${i.issue}`));
     
     return {
       explanation: this.generateExplanation(code, filename, structure),
       strengths: strengths.length > 0 ? strengths.join('\n\n') : '코드의 좋은 점을 찾는 중...',
       improvements: issues.length > 0 ? issues.join('\n\n') : '개선할 부분이 없습니다.',
-      suggestions: suggestions.length > 0 ? suggestions.join('\n\n') : '추가 제안사항이 없습니다.',
+      suggestions: this.formatDetailedSuggestions(suggestions, security.suggestions),
       best_practices: this.generateBestPractices(code, structure),
-      full_review: this.generateFullReview(code, filename, structure, issues, suggestions, strengths)
+      secure_coding: {
+        total_checked: security.totalChecked || 49,
+        found_issues: secureCodingIssues.length,
+        issues: secureCodingIssues,
+        compliance_rate: security.totalChecked ? ((security.totalChecked - secureCodingIssues.length) / security.totalChecked * 100).toFixed(1) : '0'
+      },
+      full_review: this.generateFullReview(code, filename, structure, issues, suggestions, strengths, secureCodingIssues)
     };
+  }
+  
+  formatDetailedSuggestions(regularSuggestions, secureSuggestions) {
+    let formatted = '';
+    
+    if (regularSuggestions.length > 0) {
+      formatted += '## 일반 개선 제안\n\n' + regularSuggestions.join('\n\n') + '\n\n';
+    }
+    
+    if (secureSuggestions && secureSuggestions.length > 0) {
+      formatted += '## 🔒 시큐어 코딩 개선 제안 (CWEAP 가이드)\n\n';
+      secureSuggestions.forEach((s, idx) => {
+        formatted += `### ${idx + 1}. ${s.name} [${s.severity}]\n\n`;
+        formatted += `**문제점:** ${s.issue}\n\n`;
+        formatted += `**개선 방안 (Java 8):**\n\`\`\`java\n${s.suggestion}\n\`\`\`\n\n`;
+      });
+    }
+    
+    return formatted || '추가 제안사항이 없습니다.';
   }
   
   analyzeStructure(code) {
@@ -52,74 +85,1117 @@ class JavaCodeAnalyzer {
   
   checkCodeQuality(code, lines) {
     const issues = [], suggestions = [], strengths = [];
+    
+    // 긴 메서드 체크
     const longMethods = this.findLongMethods(code);
     if (longMethods.length > 0) {
-      issues.push(`⚠️ 긴 메서드: ${longMethods.length}개의 메서드가 50줄을 초과합니다. 작은 단위로 분리하세요.`);
-      suggestions.push(`💡 긴 메서드는 여러 개의 작은 메서드로 분리하면 가독성이 향상됩니다.`);
+      issues.push(`⚠️ 긴 메서드: ${longMethods.length}개의 메서드가 50줄을 초과합니다.`);
+      suggestions.push(`💡 **Java 8 방식 - 메서드 분리:**
+
+\`\`\`java
+// ❌ 긴 메서드
+public void processOrder(Order order) {
+    // 100줄 이상의 코드...
+}
+
+// ✅ 작은 메서드로 분리
+public void processOrder(Order order) {
+    validateOrder(order);
+    calculatePrice(order);
+    applyDiscount(order);
+    saveOrder(order);
+    sendNotification(order);
+}
+
+private void validateOrder(Order order) {
+    if (order == null) {
+        throw new IllegalArgumentException("주문이 null입니다.");
     }
+    // 검증 로직
+}
+
+// Java 8 Stream 활용
+private void processOrderItems(List<OrderItem> items) {
+    items.stream()
+        .filter(this::isValidItem)
+        .map(this::calculateItemPrice)
+        .forEach(this::saveItem);
+}
+\`\`\``);
+    }
+    
+    // 매직 넘버 체크
     const magicNumbers = code.match(/\b\d{2,}\b/g);
     if (magicNumbers && magicNumbers.length > 5) {
-      issues.push(`⚠️ 매직 넘버: 숫자 리터럴이 많이 사용됩니다. 상수로 정의하세요.`);
-      suggestions.push(`💡 예: private static final int MAX_SIZE = 100;`);
+      issues.push(`⚠️ 매직 넘버: 숫자 리터럴이 ${magicNumbers.length}개 사용되고 있습니다.`);
+      suggestions.push(`💡 **Java 8 방식 - 상수 정의:**
+
+\`\`\`java
+// ❌ 매직 넘버 사용
+if (user.getAge() > 18 && user.getAge() < 65) {
+    // ...
+}
+if (items.size() > 100) {
+    // ...
+}
+
+// ✅ 상수로 정의
+public class UserConstants {
+    public static final int MIN_AGE = 18;
+    public static final int MAX_AGE = 65;
+    public static final int MAX_ITEMS = 100;
+    public static final int DEFAULT_PAGE_SIZE = 20;
+}
+
+// 사용
+if (user.getAge() > UserConstants.MIN_AGE && 
+    user.getAge() < UserConstants.MAX_AGE) {
+    // ...
+}
+
+// 또는 Enum 사용 (Java 8)
+public enum AgeLimit {
+    MIN(18), MAX(65);
+    private final int value;
+    AgeLimit(int value) { this.value = value; }
+    public int getValue() { return value; }
+}
+\`\`\``);
     }
+    
+    // 주석 체크
     const commentRatio = lines.filter(l => l.trim().startsWith('//') || l.includes('/*')).length / lines.length;
     if (commentRatio < 0.1) {
-      issues.push(`⚠️ 주석 부족: 코드에 주석이 적습니다.`);
-    } else if (commentRatio > 0.3) {
-      strengths.push(`✅ 좋은 주석 비율: 적절한 주석이 있습니다.`);
+      issues.push(`⚠️ 주석 부족: 주석 비율이 ${(commentRatio * 100).toFixed(1)}%입니다.`);
+      suggestions.push(`💡 **Java 8 방식 - JavaDoc 주석:**
+
+\`\`\`java
+/**
+ * 사용자 정보를 조회합니다.
+ * 
+ * @param userId 사용자 ID
+ * @return 사용자 정보 (없으면 Optional.empty())
+ * @throws IllegalArgumentException userId가 null이거나 음수인 경우
+ * @since 1.0
+ */
+public Optional<User> getUser(Long userId) {
+    if (userId == null || userId < 0) {
+        throw new IllegalArgumentException("유효하지 않은 사용자 ID: " + userId);
     }
+    return userRepository.findById(userId);
+}
+
+// 복잡한 로직에는 인라인 주석
+public List<User> filterActiveUsers(List<User> users) {
+    return users.stream()
+        .filter(user -> user.isActive())  // 활성 사용자만 필터링
+        .filter(user -> !user.isDeleted()) // 삭제되지 않은 사용자만
+        .sorted(Comparator.comparing(User::getName)) // 이름순 정렬
+        .collect(Collectors.toList());
+}
+\`\`\``);
+    } else if (commentRatio > 0.3) {
+      strengths.push(`✅ 좋은 주석 비율: ${(commentRatio * 100).toFixed(1)}%의 주석이 있어 코드 가독성이 좋습니다.`);
+    }
+    
+    // 변수명 체크
     const badNames = code.match(/\b(a|b|c|temp|tmp|data|obj)\b/g);
     if (badNames && badNames.length > 10) {
-      issues.push(`⚠️ 의미 없는 변수명: 일부 변수명이 불명확합니다.`);
-      suggestions.push(`💡 변수명은 의도를 명확히 표현하세요. 예: 'data' → 'userData'`);
+      issues.push(`⚠️ 의미 없는 변수명: ${badNames.length}개의 불명확한 변수명이 사용되고 있습니다.`);
+      suggestions.push(`💡 **Java 8 방식 - 의미 있는 변수명:**
+
+\`\`\`java
+// ❌ 의미 없는 변수명
+String data = getUserData();
+Object obj = processData(data);
+int temp = calculate(obj);
+
+// ✅ 의미 있는 변수명
+String userProfile = getUserProfile();
+User currentUser = processUserProfile(userProfile);
+int totalPrice = calculateTotalPrice(currentUser);
+
+// Java 8 람다에서도 의미 있는 이름
+users.stream()
+    .filter(user -> user.isActive())  // user는 명확함
+    .map(activeUser -> activeUser.getName())  // activeUser로 더 명확
+    .collect(Collectors.toList());
+
+// 메서드 체이닝 시 중간 변수 사용
+List<String> activeUserNames = users.stream()
+    .filter(User::isActive)
+    .map(User::getName)
+    .collect(Collectors.toList());
+\`\`\``);
     }
+    
     return { issues, suggestions, strengths };
   }
   
   checkBestPractices(code, lines) {
     const issues = [], suggestions = [];
-    if (!code.match(/\bprivate\s+\w+/)) {
-      issues.push(`⚠️ 접근 제어자: 모든 필드가 public일 수 있습니다. private을 사용하세요.`);
-      suggestions.push(`💡 클래스 필드는 private으로 선언하고 getter/setter를 제공하세요.`);
+    
+    // 접근 제어자 체크
+    if (!code.match(/\bprivate\s+\w+/) && code.match(/\bpublic\s+\w+\s+\w+\s*[=;]/)) {
+      issues.push(`⚠️ 접근 제어자: 필드가 public으로 선언되어 있습니다.`);
+      suggestions.push(`💡 **Java 8 방식 - 캡슐화:**
+
+\`\`\`java
+// ❌ public 필드
+public class User {
+    public String name;
+    public int age;
+}
+
+// ✅ private 필드 + getter/setter
+public class User {
+    private String name;
+    private int age;
+    
+    public String getName() {
+        return name;
     }
-    if (code.includes('throws') && !code.includes('try')) {
-      issues.push(`⚠️ 예외 처리: throws만 사용하고 try-catch가 없습니다.`);
-      suggestions.push(`💡 예외가 발생할 수 있는 코드는 try-catch로 감싸세요.`);
+    
+    public void setName(String name) {
+        if (name == null || name.trim().isEmpty()) {
+            throw new IllegalArgumentException("이름은 필수입니다.");
+        }
+        this.name = name;
     }
-    if (code.includes('str.equals(')) {
-      issues.push(`⚠️ NullPointerException 위험: "value".equals(variable) 패턴을 사용하세요.`);
-      suggestions.push(`💡 예: "value".equals(variable) 형태로 사용하면 null 안전합니다.`);
+    
+    // Java 8 Optional 활용
+    public Optional<String> getOptionalName() {
+        return Optional.ofNullable(name);
     }
-    if ((code.includes('new FileInputStream') || code.includes('new BufferedReader')) && !code.includes('try-with-resources') && !code.includes('finally')) {
-      issues.push(`⚠️ 리소스 관리: try-with-resources를 사용하세요.`);
-      suggestions.push(`💡 try (FileInputStream fis = new FileInputStream(file)) { ... } 형태로 사용하세요.`);
+}
+
+// 또는 Lombok 사용 (Java 8 호환)
+@Data
+@Getter
+@Setter
+public class User {
+    @NotNull
+    private String name;
+    
+    @Min(0)
+    @Max(150)
+    private int age;
+}
+\`\`\``);
     }
+    
+    // 예외 처리 체크
+    if (code.includes('throws') && !code.includes('try') && !code.includes('catch')) {
+      issues.push(`⚠️ 예외 처리: throws만 선언하고 실제 처리가 없습니다.`);
+      suggestions.push(`💡 **Java 8 방식 - 예외 처리:**
+
+\`\`\`java
+// ❌ 예외를 그냥 던짐
+public void processFile(String filename) throws IOException {
+    FileInputStream fis = new FileInputStream(filename);
+    // ...
+}
+
+// ✅ try-with-resources 사용 (Java 7+)
+public void processFile(String filename) throws IOException {
+    try (FileInputStream fis = new FileInputStream(filename);
+         BufferedReader reader = new BufferedReader(new InputStreamReader(fis))) {
+        String line;
+        while ((line = reader.readLine()) != null) {
+            processLine(line);
+        }
+    } catch (FileNotFoundException e) {
+        logger.error("파일을 찾을 수 없습니다: {}", filename, e);
+        throw new ServiceException("파일을 찾을 수 없습니다.", e);
+    }
+}
+
+// Java 8 Optional과 함께
+public Optional<String> readFileSafely(String filename) {
+    try (BufferedReader reader = Files.newBufferedReader(Paths.get(filename))) {
+        return Optional.of(reader.lines().collect(Collectors.joining()));
+    } catch (IOException e) {
+        logger.error("파일 읽기 실패", e);
+        return Optional.empty();
+    }
+}
+\`\`\``);
+    }
+    
+    // null 안전성 체크
+    if (code.includes('str.equals(') || code.match(/\w+\.equals\([^)]+\)/)) {
+      issues.push(`⚠️ NullPointerException 위험: 변수.equals() 패턴 사용`);
+      suggestions.push(`💡 **Java 8 방식 - null 안전한 equals:**
+
+\`\`\`java
+// ❌ 위험한 코드
+if (str.equals("value")) {  // str이 null이면 NPE
+    // ...
+}
+
+// ✅ 안전한 코드
+if ("value".equals(str)) {  // null 안전
+    // ...
+}
+
+// Java 8 Objects.equals() 사용
+import java.util.Objects;
+
+if (Objects.equals(str, "value")) {
+    // ...
+}
+
+// Java 8 Optional 활용
+Optional<String> optionalStr = Optional.ofNullable(str);
+if (optionalStr.filter(s -> s.equals("value")).isPresent()) {
+    // ...
+}
+
+// 또는
+optionalStr.filter("value"::equals).ifPresent(s -> {
+    // 처리
+});
+\`\`\``);
+    }
+    
+    // 리소스 관리 체크
+    if ((code.includes('new FileInputStream') || code.includes('new BufferedReader') || code.includes('new FileWriter')) && !code.includes('try-with-resources') && !code.includes('finally')) {
+      issues.push(`⚠️ 리소스 관리: try-with-resources를 사용하지 않습니다.`);
+      suggestions.push(`💡 **Java 8 방식 - try-with-resources:**
+
+\`\`\`java
+// ❌ 위험한 코드 (리소스 누수 가능)
+FileInputStream fis = new FileInputStream(file);
+BufferedReader reader = new BufferedReader(new InputStreamReader(fis));
+// ... 사용
+// finally에서 닫아야 함
+
+// ✅ 안전한 코드 - try-with-resources
+try (FileInputStream fis = new FileInputStream(file);
+     BufferedReader reader = new BufferedReader(new InputStreamReader(fis))) {
+    String line;
+    while ((line = reader.readLine()) != null) {
+        processLine(line);
+    }
+} // 자동으로 리소스 닫힘
+
+// Java 8 Files API 사용 (더 간단)
+try {
+    List<String> lines = Files.readAllLines(Paths.get(filePath), StandardCharsets.UTF_8);
+    lines.forEach(this::processLine);
+} catch (IOException e) {
+    logger.error("파일 읽기 실패", e);
+}
+
+// Java 8 Stream과 함께
+try (Stream<String> lines = Files.lines(Paths.get(filePath))) {
+    lines.filter(line -> !line.isEmpty())
+         .map(String::toUpperCase)
+         .forEach(System.out::println);
+}
+\`\`\``);
+    }
+    
+    // Java 8 특화 체크
+    if (code.includes('for (') && code.includes('.size()') && !code.includes('stream()')) {
+      issues.push(`⚠️ Java 8 스타일: 반복문을 Stream API로 개선할 수 있습니다.`);
+      suggestions.push(`💡 **Java 8 방식 - Stream API 활용:**
+
+\`\`\`java
+// ❌ 전통적인 반복문
+List<String> result = new ArrayList<>();
+for (int i = 0; i < list.size(); i++) {
+    if (list.get(i).startsWith("A")) {
+        result.add(list.get(i).toUpperCase());
+    }
+}
+
+// ✅ Java 8 Stream API
+List<String> result = list.stream()
+    .filter(s -> s.startsWith("A"))
+    .map(String::toUpperCase)
+    .collect(Collectors.toList());
+
+// 더 복잡한 예제
+Map<String, Long> countByCategory = items.stream()
+    .filter(Item::isActive)
+    .collect(Collectors.groupingBy(
+        Item::getCategory,
+        Collectors.counting()
+    ));
+
+// Optional 활용
+Optional<User> user = users.stream()
+    .filter(u -> u.getId().equals(userId))
+    .findFirst();
+\`\`\``);
+    }
+    
     return { issues, suggestions };
   }
   
   checkPerformance(code) {
     const issues = [], suggestions = [];
-    if (code.match(/"[^"]*"\s*\+\s*"[^"]*"/g) && code.match(/"[^"]*"\s*\+\s*"[^"]*"/g).length > 3) {
-      issues.push(`⚠️ 성능: 문자열 연결 시 + 연산자를 반복 사용하고 있습니다.`);
-      suggestions.push(`💡 StringBuilder나 String.join()을 사용하세요.`);
+    
+    // 문자열 연결 체크
+    const stringConcat = code.match(/"[^"]*"\s*\+\s*"[^"]*"/g);
+    if (stringConcat && stringConcat.length > 3) {
+      issues.push(`⚠️ 성능: 문자열 연결 시 + 연산자를 ${stringConcat.length}번 사용하고 있습니다.`);
+      suggestions.push(`💡 **Java 8 방식 - 효율적인 문자열 연결:**
+
+\`\`\`java
+// ❌ 비효율적인 문자열 연결
+String result = "Hello" + " " + "World" + " " + name + "!";
+
+// ✅ StringBuilder 사용
+StringBuilder sb = new StringBuilder();
+sb.append("Hello").append(" ").append("World").append(" ").append(name).append("!");
+String result = sb.toString();
+
+// ✅ Java 8 String.join() 사용
+String result = String.join(" ", "Hello", "World", name, "!");
+
+// ✅ Java 8 Stream과 Collectors.joining()
+List<String> parts = Arrays.asList("Hello", "World", name, "!");
+String result = parts.stream()
+    .filter(s -> s != null && !s.isEmpty())
+    .collect(Collectors.joining(" "));
+
+// 반복문에서 문자열 연결
+StringBuilder sb = new StringBuilder();
+for (String item : items) {
+    sb.append(item).append(", ");
+}
+String result = sb.toString().replaceAll(", $", "");
+
+// 또는 Java 8 방식
+String result = items.stream()
+    .collect(Collectors.joining(", "));
+\`\`\``);
     }
+    
+    // 불필요한 객체 생성 체크
     if (code.match(/new\s+String\s*\(/g)) {
-      issues.push(`⚠️ 불필요한 객체 생성: new String() 사용을 피하세요.`);
+      issues.push(`⚠️ 불필요한 객체 생성: new String() 사용`);
+      suggestions.push(`💡 **Java 8 방식 - 문자열 리터럴 사용:**
+
+\`\`\`java
+// ❌ 불필요한 객체 생성
+String str = new String("value");
+
+// ✅ 문자열 리터럴 사용
+String str = "value";
+
+// 문자열 비교도 리터럴 사용
+if ("value".equals(str)) {  // null 안전
+    // ...
+}
+\`\`\``);
     }
+    
+    // 반복문에서 size() 호출 체크
+    if (code.includes('for (') && code.match(/\.size\(\)/g) && code.match(/\.size\(\)/g).length > 1) {
+      issues.push(`⚠️ 성능: 반복문에서 .size()를 반복 호출하고 있습니다.`);
+      suggestions.push(`💡 **Java 8 방식 - 효율적인 반복:**
+
+\`\`\`java
+// ❌ 비효율적
+for (int i = 0; i < list.size(); i++) {  // 매번 size() 호출
+    // ...
+}
+
+// ✅ 변수에 저장
+int size = list.size();
+for (int i = 0; i < size; i++) {
+    // ...
+}
+
+// ✅ 향상된 for문 사용
+for (String item : list) {
+    // ...
+}
+
+// ✅ Java 8 Stream 사용 (가장 권장)
+list.stream().forEach(item -> {
+    // ...
+});
+\`\`\``);
+    }
+    
     return { issues, suggestions };
   }
   
-  checkSecurity(code) {
-    const issues = [], suggestions = [];
-    if (code.includes('Statement') && code.includes('executeQuery') && !code.includes('PreparedStatement')) {
-      issues.push(`⚠️ 보안: Statement 대신 PreparedStatement를 사용하세요.`);
-      suggestions.push(`💡 PreparedStatement를 사용하면 SQL Injection을 방지할 수 있습니다.`);
+  checkSecureCoding(code) {
+    const issues = [];
+    const suggestions = [];
+    let totalChecked = 0;
+    
+    // CWEAP 시큐어 코딩 가이드 49개 항목 체크
+    const guidelines = this.getSecureCodingGuidelines();
+    
+    Object.values(guidelines).forEach(category => {
+      category.forEach(guideline => {
+        totalChecked++;
+        if (guideline.check(code)) {
+          issues.push({
+            id: guideline.id,
+            name: guideline.name,
+            issue: guideline.issue,
+            severity: guideline.severity
+          });
+          suggestions.push({
+            id: guideline.id,
+            name: guideline.name,
+            issue: guideline.issue,
+            suggestion: guideline.suggestion,
+            severity: guideline.severity
+          });
+        }
+      });
+    });
+    
+    return { issues, suggestions, totalChecked };
+  }
+  
+  getSecureCodingGuidelines() {
+    return {
+      input_validation: [
+        {
+          id: 'SC-001',
+          name: '입력값 길이 검증',
+          check: (code) => (code.includes('Scanner') || code.includes('BufferedReader')) && !code.match(/\.length\(\)\s*[><=]/),
+          issue: '입력값의 길이를 검증하지 않습니다.',
+          suggestion: `// Java 8 방식 - 입력값 길이 검증
+if (input == null || input.length() > MAX_LENGTH) {
+    throw new IllegalArgumentException("입력값이 유효하지 않습니다.");
+}
+
+// 상수 정의
+private static final int MAX_INPUT_LENGTH = 100;
+private static final int MIN_INPUT_LENGTH = 1;
+
+// 검증 메서드
+private void validateInput(String input) {
+    if (input == null) {
+        throw new IllegalArgumentException("입력값은 null일 수 없습니다.");
     }
-    if (code.match(/password\s*=\s*"[^"]+"/i) || code.match(/api[_-]?key\s*=\s*"[^"]+"/i)) {
-      issues.push(`⚠️ 보안: 비밀번호나 API 키가 하드코딩되어 있습니다.`);
-      suggestions.push(`💡 환경 변수나 설정 파일을 사용하세요.`);
+    if (input.length() < MIN_INPUT_LENGTH || input.length() > MAX_INPUT_LENGTH) {
+        throw new IllegalArgumentException(
+            String.format("입력값 길이는 %d~%d자여야 합니다.", MIN_INPUT_LENGTH, MAX_INPUT_LENGTH)
+        );
     }
-    return { issues, suggestions };
+}`,
+          severity: 'HIGH'
+        },
+        {
+          id: 'SC-002',
+          name: '입력값 형식 검증',
+          check: (code) => code.includes('Integer.parseInt') || code.includes('Double.parseDouble'),
+          issue: '입력값 형식 검증 없이 파싱하고 있습니다.',
+          suggestion: `// Java 8 방식 - 안전한 숫자 파싱
+// ❌ 위험한 코드
+int value = Integer.parseInt(input);
+
+// ✅ 안전한 코드
+private int parseIntegerSafely(String input) {
+    if (input == null || input.trim().isEmpty()) {
+        throw new IllegalArgumentException("입력값이 비어있습니다.");
+    }
+    
+    try {
+        return Integer.parseInt(input.trim());
+    } catch (NumberFormatException e) {
+        logger.warn("잘못된 숫자 형식: {}", input, e);
+        throw new ValidationException("숫자 형식이 올바르지 않습니다: " + input);
+    }
+}
+
+// 정규식으로 사전 검증
+if (!input.matches("^-?[0-9]+$")) {
+    throw new ValidationException("숫자만 입력 가능합니다.");
+}
+int value = Integer.parseInt(input);
+
+// Java 8 Optional 활용
+Optional<Integer> value = Optional.ofNullable(input)
+    .filter(s -> s.matches("^-?[0-9]+$"))
+    .map(Integer::parseInt);`,
+          severity: 'HIGH'
+        },
+        {
+          id: 'SC-003',
+          name: 'SQL Injection 방지',
+          check: (code) => code.includes('Statement') && code.includes('executeQuery') && !code.includes('PreparedStatement'),
+          issue: 'Statement를 사용하여 SQL Injection 위험이 있습니다.',
+          suggestion: `// Java 8 방식 - PreparedStatement 사용
+// ❌ 위험한 코드
+String sql = "SELECT * FROM users WHERE id = " + userId;
+Statement stmt = conn.createStatement();
+ResultSet rs = stmt.executeQuery(sql);
+
+// ✅ 안전한 코드 - PreparedStatement
+String sql = "SELECT * FROM users WHERE id = ?";
+PreparedStatement pstmt = conn.prepareStatement(sql);
+pstmt.setInt(1, userId);
+ResultSet rs = pstmt.executeQuery();
+
+// Java 8 try-with-resources와 함께
+try (Connection conn = dataSource.getConnection();
+     PreparedStatement pstmt = conn.prepareStatement(sql)) {
+    pstmt.setInt(1, userId);
+    try (ResultSet rs = pstmt.executeQuery()) {
+        while (rs.next()) {
+            // 결과 처리
+        }
+    }
+}
+
+// MyBatis 사용 시
+// #{userId} 사용 (${userId}는 사용 금지)
+// <select id="getUser" resultType="User">
+//     SELECT * FROM users WHERE id = #{userId}
+// </select>`,
+          severity: 'CRITICAL'
+        },
+        {
+          id: 'SC-004',
+          name: 'XSS 방지',
+          check: (code) => (code.includes('response.getWriter') || code.includes('out.print')) && !code.includes('escapeHtml'),
+          issue: '출력값 인코딩 없이 사용자 입력을 출력하고 있습니다.',
+          suggestion: `// Java 8 방식 - XSS 방지
+// ❌ 위험한 코드
+response.getWriter().print(userInput);
+
+// ✅ 안전한 코드 - Apache Commons Text 사용
+import org.apache.commons.text.StringEscapeUtils;
+
+String safeOutput = StringEscapeUtils.escapeHtml4(userInput);
+response.getWriter().print(safeOutput);
+
+// 또는 직접 구현
+public static String escapeHtml(String input) {
+    if (input == null) return "";
+    return input.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#x27;");
+}
+
+// JSON 출력 시
+import com.fasterxml.jackson.core.JsonGenerator;
+ObjectMapper mapper = new ObjectMapper();
+mapper.getFactory().configure(JsonGenerator.Feature.ESCAPE_NON_ASCII, true);
+String json = mapper.writeValueAsString(data);`,
+          severity: 'HIGH'
+        },
+        {
+          id: 'SC-005',
+          name: 'Path Traversal 방지',
+          check: (code) => code.includes('new File(') && (code.includes('userInput') || code.includes('request.getParameter')),
+          issue: '사용자 입력을 파일 경로로 사용하고 있습니다.',
+          suggestion: `// Java 8 방식 - Path Traversal 방지
+// ❌ 위험한 코드
+File file = new File(userInput);
+
+// ✅ 안전한 코드 - Apache Commons IO 사용
+import org.apache.commons.io.FilenameUtils;
+
+String safePath = FilenameUtils.getName(userInput);
+File file = new File(baseDirectory, safePath);
+
+// Java 8 Path API 사용
+Path basePath = Paths.get(baseDirectory);
+Path userPath = Paths.get(userInput);
+Path resolvedPath = basePath.resolve(userPath).normalize();
+
+if (!resolvedPath.startsWith(basePath)) {
+    throw new SecurityException("접근 불가능한 경로입니다.");
+}
+File file = resolvedPath.toFile();
+
+// 검증 메서드
+private void validateFilePath(String filePath) {
+    if (filePath == null || filePath.contains("..") || filePath.contains("/") || filePath.contains("\\\\")) {
+        throw new SecurityException("잘못된 파일 경로입니다.");
+    }
+}`,
+          severity: 'HIGH'
+        }
+      ],
+      encryption: [
+        {
+          id: 'SC-006',
+          name: '비밀번호 평문 저장',
+          check: (code) => code.match(/password\s*=\s*"[^"]+"/i) || (code.includes('password') && !code.includes('BCrypt') && !code.includes('PBKDF2') && !code.includes('hash')),
+          issue: '비밀번호가 평문으로 저장되거나 전송되고 있습니다.',
+          suggestion: `// Java 8 방식 - BCrypt 사용
+// ❌ 위험한 코드
+String password = request.getParameter("password");
+user.setPassword(password);
+
+// ✅ 안전한 코드 - BCrypt (jBCrypt 라이브러리)
+import org.mindrot.jbcrypt.BCrypt;
+
+// 비밀번호 해싱
+String hashedPassword = BCrypt.hashpw(password, BCrypt.gensalt(12));
+
+// 비밀번호 검증
+if (BCrypt.checkpw(inputPassword, storedHash)) {
+    // 로그인 성공
+}
+
+// Java 표준 PBKDF2 사용
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
+import java.security.SecureRandom;
+import java.util.Base64;
+
+private static final int ITERATIONS = 65536;
+private static final int KEY_LENGTH = 256;
+
+public String hashPassword(String password) throws Exception {
+    SecureRandom random = new SecureRandom();
+    byte[] salt = new byte[16];
+    random.nextBytes(salt);
+    
+    PBEKeySpec spec = new PBEKeySpec(password.toCharArray(), salt, ITERATIONS, KEY_LENGTH);
+    SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+    byte[] hash = factory.generateSecret(spec).getEncoded();
+    
+    return Base64.getEncoder().encodeToString(salt) + ":" + 
+           Base64.getEncoder().encodeToString(hash);
+}
+
+public boolean verifyPassword(String password, String stored) throws Exception {
+    String[] parts = stored.split(":");
+    byte[] salt = Base64.getDecoder().decode(parts[0]);
+    byte[] hash = Base64.getDecoder().decode(parts[1]);
+    
+    PBEKeySpec spec = new PBEKeySpec(password.toCharArray(), salt, ITERATIONS, KEY_LENGTH);
+    SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+    byte[] testHash = factory.generateSecret(spec).getEncoded();
+    
+    return Arrays.equals(hash, testHash);
+}`,
+          severity: 'CRITICAL'
+        },
+        {
+          id: 'SC-007',
+          name: '약한 암호화 알고리즘',
+          check: (code) => code.includes('DES') || code.includes('MD5') || (code.includes('SHA1') && !code.includes('SHA256')),
+          issue: '약한 암호화 알고리즘(DES, MD5, SHA1)을 사용하고 있습니다.',
+          suggestion: `// Java 8 방식 - 강한 암호화 알고리즘
+// ❌ 위험한 코드
+MessageDigest md = MessageDigest.getInstance("MD5");
+Cipher cipher = Cipher.getInstance("DES");
+
+// ✅ 안전한 코드
+// 해시: SHA-256 이상 사용
+MessageDigest md = MessageDigest.getInstance("SHA-256");
+byte[] hash = md.digest(data.getBytes());
+
+// 대칭키 암호화: AES-256 사용
+Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+KeyGenerator keyGenerator = KeyGenerator.getInstance("AES");
+keyGenerator.init(256);
+SecretKey key = keyGenerator.generateKey();
+
+cipher.init(Cipher.ENCRYPT_MODE, key);
+byte[] encrypted = cipher.doFinal(data.getBytes());
+
+// 비대칭키 암호화: RSA 2048비트 이상
+KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
+keyGen.initialize(2048);
+KeyPair keyPair = keyGen.generateKeyPair();
+
+Cipher rsaCipher = Cipher.getInstance("RSA/ECB/OAEPWithSHA-256AndMGF1Padding");
+rsaCipher.init(Cipher.ENCRYPT_MODE, keyPair.getPublic());
+byte[] encrypted = rsaCipher.doFinal(data.getBytes());`,
+          severity: 'HIGH'
+        }
+      ],
+      exception_handling: [
+        {
+          id: 'SC-008',
+          name: '민감한 정보 노출',
+          check: (code) => code.includes('printStackTrace') || (code.includes('e.getMessage()') && code.includes('response')),
+          issue: '예외 메시지에 민감한 정보가 노출될 수 있습니다.',
+          suggestion: `// Java 8 방식 - 안전한 예외 처리
+// ❌ 위험한 코드
+try {
+    // ...
+} catch (Exception e) {
+    e.printStackTrace(); // 스택 트레이스에 민감한 정보 노출
+    response.getWriter().print(e.getMessage()); // 사용자에게 직접 노출
+}
+
+// ✅ 안전한 코드
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+private static final Logger logger = LoggerFactory.getLogger(UserService.class);
+
+try {
+    // ...
+} catch (SQLException e) {
+    logger.error("데이터베이스 오류 발생: userId={}", userId, e); // 로그에는 상세 정보
+    throw new ServiceException("처리 중 오류가 발생했습니다. 관리자에게 문의하세요.");
+} catch (Exception e) {
+    logger.error("예상치 못한 오류 발생", e);
+    throw new ServiceException("시스템 오류가 발생했습니다.");
+}
+
+// 사용자 정의 예외
+public class ServiceException extends Exception {
+    private static final String DEFAULT_MESSAGE = "처리 중 오류가 발생했습니다.";
+    
+    public ServiceException() {
+        super(DEFAULT_MESSAGE);
+    }
+    
+    public ServiceException(String userMessage, Throwable cause) {
+        super(userMessage, cause);
+    }
+}
+
+// Spring Boot Exception Handler
+@ControllerAdvice
+public class GlobalExceptionHandler {
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleException(Exception e) {
+        logger.error("오류 발생", e);
+        return ResponseEntity.status(500)
+            .body(new ErrorResponse("서버 오류가 발생했습니다."));
+    }
+}`,
+          severity: 'MEDIUM'
+        },
+        {
+          id: 'SC-009',
+          name: '예외 무시',
+          check: (code) => code.match(/catch\s*\([^)]+\)\s*\{\s*\}/) || code.match(/catch\s*\([^)]+\)\s*\{\s*\/\/.*\}/),
+          issue: '예외를 catch하고 아무 처리도 하지 않습니다.',
+          suggestion: `// Java 8 방식 - 적절한 예외 처리
+// ❌ 위험한 코드
+try {
+    processData();
+} catch (Exception e) {
+    // 예외 무시
+}
+
+// ✅ 안전한 코드
+try {
+    processData();
+} catch (ValidationException e) {
+    logger.warn("검증 실패: {}", e.getMessage(), e);
+    throw new ServiceException("입력값이 유효하지 않습니다.");
+} catch (Exception e) {
+    logger.error("처리 중 오류 발생", e);
+    throw new ServiceException("처리 중 오류가 발생했습니다.", e);
+}
+
+// 또는 최소한 로깅
+try {
+    processData();
+} catch (Exception e) {
+    logger.error("오류 발생", e);
+    // 복구 로직 또는 재시도
+}
+
+// Java 8 Optional과 함께
+public Optional<Result> processSafely() {
+    try {
+        return Optional.of(processData());
+    } catch (Exception e) {
+        logger.error("처리 실패", e);
+        return Optional.empty();
+    }
+}`,
+          severity: 'MEDIUM'
+        }
+      ],
+      session_management: [
+        {
+          id: 'SC-010',
+          name: '세션 고정 공격 방지',
+          check: (code) => code.includes('HttpSession') && code.includes('setAttribute') && !code.includes('invalidate'),
+          issue: '로그인 시 세션을 재생성하지 않습니다.',
+          suggestion: `// Java 8 방식 - 세션 재생성
+// ❌ 위험한 코드
+HttpSession session = request.getSession();
+session.setAttribute("user", user);
+
+// ✅ 안전한 코드 - 로그인 시 세션 재생성
+HttpSession oldSession = request.getSession(false);
+if (oldSession != null) {
+    // 기존 세션 데이터 백업
+    Map<String, Object> sessionData = new HashMap<>();
+    Enumeration<String> attributes = oldSession.getAttributeNames();
+    while (attributes.hasMoreElements()) {
+        String key = attributes.nextElement();
+        sessionData.put(key, oldSession.getAttribute(key));
+    }
+    
+    // 기존 세션 무효화
+    oldSession.invalidate();
+}
+
+// 새 세션 생성
+HttpSession newSession = request.getSession(true);
+newSession.setAttribute("user", user);
+newSession.setMaxInactiveInterval(30 * 60); // 30분
+
+// Spring Security 사용 시
+// 자동으로 세션 재생성 처리됨`,
+          severity: 'HIGH'
+        },
+        {
+          id: 'SC-011',
+          name: '세션 하이재킹 방지',
+          check: (code) => code.includes('HttpSession') && !code.includes('setSecure') && !code.includes('http-only'),
+          issue: '세션 쿠키에 Secure, HttpOnly 플래그가 설정되지 않았습니다.',
+          suggestion: `// Java 8 방식 - 안전한 세션 쿠키
+// web.xml 설정
+<session-config>
+    <cookie-config>
+        <http-only>true</http-only>
+        <secure>true</secure>
+        <max-age>1800</max-age>
+    </cookie-config>
+    <session-timeout>30</session-timeout>
+</session-config>
+
+// 또는 프로그래밍 방식
+Cookie sessionCookie = new Cookie("JSESSIONID", session.getId());
+sessionCookie.setHttpOnly(true);
+sessionCookie.setSecure(true);
+sessionCookie.setMaxAge(1800);
+sessionCookie.setPath("/");
+response.addCookie(sessionCookie);
+
+// Spring Boot 설정
+server.servlet.session.cookie.http-only=true
+server.servlet.session.cookie.secure=true
+server.servlet.session.cookie.max-age=1800
+server.servlet.session.timeout=30m`,
+          severity: 'HIGH'
+        }
+      ],
+      access_control: [
+        {
+          id: 'SC-012',
+          name: '권한 검증 누락',
+          check: (code) => (code.includes('@RequestMapping') || code.includes('doGet') || code.includes('doPost')) && !code.includes('@PreAuthorize') && !code.includes('hasRole'),
+          issue: '메서드나 엔드포인트에 권한 검증이 없습니다.',
+          suggestion: `// Java 8 방식 - 권한 검증
+// Spring Security 사용
+@PreAuthorize("hasRole('ADMIN')")
+@RequestMapping("/admin/users")
+public List<User> getUsers() {
+    // ...
+}
+
+// 또는 수동 검증
+public void deleteUser(Long userId) {
+    User currentUser = getCurrentUser();
+    if (!currentUser.hasRole("ADMIN")) {
+        throw new AccessDeniedException("관리자 권한이 필요합니다.");
+    }
+    // ...
+}
+
+// AOP를 이용한 권한 검증
+@Aspect
+@Component
+public class SecurityAspect {
+    @Before("@annotation(RequiresRole)")
+    public void checkRole(JoinPoint joinPoint) {
+        RequiresRole annotation = // ...
+        if (!hasRole(annotation.value())) {
+            throw new AccessDeniedException("권한이 없습니다.");
+        }
+    }
+}
+
+// Java 8 메서드 레퍼런스 활용
+private boolean hasRole(String role) {
+    return getCurrentUser().getRoles().stream()
+        .anyMatch(r -> r.getName().equals(role));
+}`,
+          severity: 'HIGH'
+        }
+      ],
+      logging: [
+        {
+          id: 'SC-013',
+          name: '민감한 정보 로깅',
+          check: (code) => code.match(/logger\.(info|debug|warn|error)\([^)]*password[^)]*\)/i) || code.match(/System\.out\.println\([^)]*password[^)]*\)/i),
+          issue: '비밀번호 등 민감한 정보를 로그에 기록하고 있습니다.',
+          suggestion: `// Java 8 방식 - 안전한 로깅
+// ❌ 위험한 코드
+logger.info("로그인 시도: username=" + username + ", password=" + password);
+System.out.println("비밀번호: " + password);
+
+// ✅ 안전한 코드
+logger.info("로그인 시도: username={}", username);
+// 비밀번호는 로그에 기록하지 않음
+
+// 민감한 정보 마스킹
+public static String maskSensitiveData(String data) {
+    if (data == null || data.length() <= 4) {
+        return "****";
+    }
+    return data.substring(0, 2) + "****" + data.substring(data.length() - 2);
+}
+
+logger.info("카드번호: {}", maskSensitiveData(cardNumber));
+
+// SLF4J + Logback 사용
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+private static final Logger logger = LoggerFactory.getLogger(UserService.class);
+logger.debug("사용자 정보 조회: userId={}", userId);
+
+// Java 8 Stream을 활용한 마스킹
+private String maskCardNumber(String cardNumber) {
+    if (cardNumber == null || cardNumber.length() < 8) {
+        return "****";
+    }
+    return cardNumber.substring(0, 4) + 
+           "****" + 
+           cardNumber.substring(cardNumber.length() - 4);
+}`,
+          severity: 'HIGH'
+        },
+        {
+          id: 'SC-014',
+          name: '로깅 부재',
+          check: (code) => !code.includes('logger') && !code.includes('Logger') && !code.includes('log4j') && code.includes('public') && code.includes('void'),
+          issue: '중요한 작업에 대한 로깅이 없습니다.',
+          suggestion: `// Java 8 방식 - 적절한 로깅
+// SLF4J 사용 (권장)
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class UserService {
+    private static final Logger logger = LoggerFactory.getLogger(UserService.class);
+    
+    public void deleteUser(Long userId) {
+        logger.info("사용자 삭제 시작: userId={}", userId);
+        try {
+            userRepository.delete(userId);
+            logger.info("사용자 삭제 완료: userId={}", userId);
+        } catch (Exception e) {
+            logger.error("사용자 삭제 실패: userId={}", userId, e);
+            throw new ServiceException("사용자 삭제 중 오류 발생", e);
+        }
+    }
+}
+
+// 로그 레벨
+logger.trace("상세 디버깅 정보");
+logger.debug("디버깅 정보");
+logger.info("일반 정보");
+logger.warn("경고");
+logger.error("오류", exception);
+
+// Java 8 람다를 활용한 조건부 로깅
+if (logger.isDebugEnabled()) {
+    logger.debug("복잡한 계산 결과: {}", expensiveCalculation());
+}`,
+          severity: 'MEDIUM'
+        }
+      ],
+      data_protection: [
+        {
+          id: 'SC-015',
+          name: '하드코딩된 비밀번호/키',
+          check: (code) => code.match(/(password|pwd|secret|key|api[_-]?key)\s*=\s*"[^"]+"/i),
+          issue: '비밀번호나 API 키가 코드에 하드코딩되어 있습니다.',
+          suggestion: `// Java 8 방식 - 환경 변수 사용
+// ❌ 위험한 코드
+String apiKey = "sk-1234567890abcdef";
+String dbPassword = "mypassword123";
+
+// ✅ 안전한 코드 - 환경 변수 사용
+String apiKey = System.getenv("API_KEY");
+if (apiKey == null || apiKey.isEmpty()) {
+    throw new IllegalStateException("API_KEY 환경 변수가 설정되지 않았습니다.");
+}
+
+// 또는 설정 파일 사용 (외부화)
+// application.properties
+api.key=${API_KEY}
+db.password=${DB_PASSWORD}
+
+// Java 코드
+@Value("${api.key}")
+private String apiKey;
+
+// 또는 Jasypt를 사용한 암호화된 설정
+// application.properties
+db.password=ENC(encrypted_password)
+
+// Spring Boot 설정
+@Configuration
+public class DatabaseConfig {
+    @Bean
+    public DataSource dataSource() {
+        HikariConfig config = new HikariConfig();
+        config.setPassword(System.getenv("DB_PASSWORD"));
+        return new HikariDataSource(config);
+    }
+}
+
+// Java 8 Optional 활용
+private String getApiKey() {
+    return Optional.ofNullable(System.getenv("API_KEY"))
+        .orElseThrow(() -> new IllegalStateException("API_KEY가 설정되지 않았습니다."));
+}`,
+          severity: 'CRITICAL'
+        }
+      ],
+      communication_security: [
+        {
+          id: 'SC-016',
+          name: 'HTTPS 미사용',
+          check: (code) => code.includes('http://') && !code.includes('https://'),
+          issue: 'HTTP 프로토콜을 사용하여 통신하고 있습니다.',
+          suggestion: `// Java 8 방식 - HTTPS 사용
+// ❌ 위험한 코드
+URL url = new URL("http://example.com/api");
+
+// ✅ 안전한 코드
+URL url = new URL("https://example.com/api");
+
+// SSL/TLS 설정
+System.setProperty("https.protocols", "TLSv1.2,TLSv1.3");
+
+// HttpClient with SSL
+import javax.net.ssl.SSLContext;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.ssl.SSLContextBuilder;
+
+SSLContext sslContext = SSLContextBuilder.create()
+    .loadTrustMaterial(null, (certificate, authType) -> true)
+    .build();
+
+CloseableHttpClient httpClient = HttpClients.custom()
+    .setSSLContext(sslContext)
+    .build();
+
+// Java 8 CompletableFuture와 함께
+CompletableFuture<String> future = CompletableFuture.supplyAsync(() -> {
+    // HTTPS 요청
+    return httpsRequest(url);
+});`,
+          severity: 'HIGH'
+        }
+      ]
+    };
   }
   
   findLongMethods(code) {
@@ -166,12 +1242,37 @@ class JavaCodeAnalyzer {
     return practices.join('\n\n');
   }
   
-  generateFullReview(code, filename, structure, issues, suggestions, strengths) {
-    let review = `# ${filename} 코드 리뷰\n\n## 코드 구조\n- 클래스 수: ${structure.classCount}\n- 메서드 수: ${structure.methodCount}\n- Import 수: ${structure.importCount}\n\n`;
-    if (strengths.length > 0) review += `## 장점\n${strengths.join('\n\n')}\n\n`;
-    if (issues.length > 0) review += `## 개선 필요 사항\n${issues.join('\n\n')}\n\n`;
-    if (suggestions.length > 0) review += `## 개선 제안\n${suggestions.join('\n\n')}\n\n`;
-    review += `## Best Practices\n${this.generateBestPractices(code, structure)}`;
+  generateFullReview(code, filename, structure, issues, suggestions, strengths, secureCodingIssues) {
+    let review = `# ${filename} 코드 리뷰\n\n`;
+    review += `## 📊 코드 구조 분석\n`;
+    review += `- 클래스 수: ${structure.classCount}\n`;
+    review += `- 메서드 수: ${structure.methodCount}\n`;
+    review += `- Import 수: ${structure.importCount}\n`;
+    review += `- 패키지 선언: ${structure.hasPackage ? '✅ 있음' : '❌ 없음'}\n`;
+    review += `- 주석 사용: ${structure.hasComments ? '✅ 있음' : '❌ 없음'}\n\n`;
+    
+    if (strengths.length > 0) {
+      review += `## ✅ 장점\n${strengths.join('\n\n')}\n\n`;
+    }
+    
+    if (issues.length > 0) {
+      review += `## ⚠️ 개선 필요 사항\n${issues.join('\n\n')}\n\n`;
+    }
+    
+    if (suggestions.length > 0) {
+      review += `## 💡 상세 개선 제안 (Java 8 최적화)\n${suggestions.join('\n\n')}\n\n`;
+    }
+    
+    if (secureCodingIssues && secureCodingIssues.length > 0) {
+      review += `## 🔒 시큐어 코딩 이슈 (CWEAP 가이드)\n`;
+      review += `총 ${secureCodingIssues.length}개의 보안 이슈가 발견되었습니다.\n\n`;
+      secureCodingIssues.forEach((issue, idx) => {
+        review += `${idx + 1}. **[${issue.severity}] ${issue.name}**\n`;
+        review += `   - 문제: ${issue.issue}\n\n`;
+      });
+    }
+    
+    review += `\n## 📚 Java 8 Best Practices\n${this.generateBestPractices(code, structure)}`;
     return review;
   }
 }
