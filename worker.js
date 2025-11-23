@@ -970,7 +970,7 @@ Optional<Integer> value = Optional.ofNullable(input)
 'pstmt.setInt(1, user_id);\n' +
 'ResultSet rs = pstmt.executeQuery();\n' +
 '\n' +
-'// Java 8 try-with-resources와 함께\n' +
+'// try-with-resources와 함께\n' +
 'try (Connection conn = dataSource.getConnection();\n' +
 '     PreparedStatement pstmt = conn.prepareStatement(sql)) {\n' +
 '    pstmt.setInt(1, user_id);\n' +
