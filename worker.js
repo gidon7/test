@@ -44,9 +44,11 @@ class JavaCodeAnalyzer {
         total_checked: security.totalChecked || 49,
         found_issues: secureCodingIssues.length,
         issues: secureCodingIssues,
-        compliance_rate: security.totalChecked ? ((security.totalChecked - secureCodingIssues.length) / security.totalChecked * 100).toFixed(1) : '0'
+        compliance_rate: security.totalChecked ? ((security.totalChecked - secureCodingIssues.length) / security.totalChecked * 100).toFixed(1) : '0',
+        code_fixes: security.codeFixes || []
       },
-      full_review: this.generateFullReview(code, filename, structure, issues, suggestions, strengths, secureCodingIssues)
+      full_review: this.generateFullReview(code, filename, structure, issues, suggestions, strengths, secureCodingIssues),
+      code_fixes: security.codeFixes || []
     };
   }
   
