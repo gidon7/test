@@ -1190,12 +1190,12 @@ if (apiKey == null || apiKey.isEmpty()) {
 
 // 또는 설정 파일 사용 (외부화)
 // application.properties
-api.key=${API_KEY}
-db.password=${DB_PASSWORD}
+// api.key=ENV_API_KEY
+// db.password=ENV_DB_PASSWORD
 
 // Java 코드
-@Value("${api.key}")
-private String apiKey;
+// @Value("ENV_API_KEY")
+// private String apiKey;
 
 // 또는 Jasypt를 사용한 암호화된 설정
 // application.properties
@@ -1235,8 +1235,8 @@ private String getApiKey() {
 }
 
 // 4. 설정 파일 사용 (application.properties)
-// api.key=${API_KEY}
-// @Value("${api.key}")
+// api.key=ENV_API_KEY
+// @Value("ENV_API_KEY")
 // private String apiKey;`,
           explanation: '비밀번호나 API 키를 코드에 직접 작성하면 버전 관리 시스템에 노출되고, 코드 변경 없이 값을 변경할 수 없습니다. 환경 변수나 설정 파일을 사용하세요.',
           severity: 'CRITICAL'
@@ -1420,21 +1420,49 @@ export default {
         const basicAnalysis = analyzeCodeStructure(codeContent);
 
         // 코드 리뷰 (규칙 기반, API 키 불필요)
-        const analyzer = new JavaCodeAnalyzer();
-        const aiReview = analyzer.analyze(codeContent, file.name);
+        try {
+          const analyzer = new JavaCodeAnalyzer();
+          const aiReview = analyzer.analyze(codeContent, file.name);
 
-        return new Response(
-          JSON.stringify({
-            success: true,
-            filename: file.name,
-            basic_analysis: basicAnalysis,
-            ai_review: aiReview,
-            api_key_configured: true, // 규칙 기반 분석이므로 항상 true
-          }),
-          {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          }
-        );
+          return new Response(
+            JSON.stringify({
+              success: true,
+              filename: file.name,
+              basic_analysis: basicAnalysis,
+              ai_review: aiReview,
+              api_key_configured: true, // 규칙 기반 분석이므로 항상 true
+            }),
+            {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          );
+        } catch (error) {
+          // 분석 중 오류 발생 시 기본 결과 반환
+          return new Response(
+            JSON.stringify({
+              success: true,
+              filename: file.name,
+              basic_analysis: basicAnalysis,
+              ai_review: {
+                explanation: '코드 분석이 완료되었습니다.',
+                strengths: '기본 분석이 완료되었습니다.',
+                improvements: '상세 분석 중 오류가 발생했습니다: ' + error.message,
+                suggestions: '코드를 다시 확인해주세요.',
+                best_practices: 'Java 8 Best Practice를 준수하세요.',
+                full_review: '분석 중 오류가 발생했습니다.',
+                secure_coding: {
+                  total_checked: 0,
+                  found_issues: 0,
+                  compliance_rate: '0'
+                }
+              },
+              api_key_configured: true,
+            }),
+            {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          );
+        }
       } catch (error) {
         return new Response(
           JSON.stringify({ error: error.message }),
