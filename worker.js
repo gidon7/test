@@ -565,15 +565,20 @@ list.stream().forEach(item -> {
             severity: guideline.severity
           });
           
-          // 구체적인 수정 방법 추가
-          codeFixes.push({
-            id: guideline.id,
-            name: guideline.name,
-            severity: guideline.severity,
-            before: this.extractBeforeCode(code, guideline),
-            after: guideline.afterCode || guideline.suggestion,
-            explanation: guideline.explanation || `이 부분을 시큐어 코딩 가이드에 맞게 수정해야 합니다.`
-          });
+          // 구체적인 수정 방법 추가 - 실제 코드 기반
+          const problematicLines = this.findProblematicLines(code, guideline);
+          if (problematicLines.length > 0) {
+            const fixedCode = this.generateFixedCode(code, guideline, problematicLines);
+            codeFixes.push({
+              id: guideline.id,
+              name: guideline.name,
+              severity: guideline.severity,
+              before: this.extractBeforeCode(code, guideline),
+              after: fixedCode || guideline.afterCode || guideline.suggestion,
+              explanation: guideline.explanation || `라인 ${problematicLines.map(p => p.line).join(', ')}을(를) 시큐어 코딩 가이드에 맞게 수정해야 합니다.`,
+              lines: problematicLines
+            });
+          }
         }
       });
     });
@@ -586,21 +591,82 @@ list.stream().forEach(item -> {
     const problematicLines = [];
     
     lines.forEach((line, index) => {
+      const trimmedLine = line.trim();
+      const lineNum = index + 1;
+      
       // 각 가이드라인별로 문제가 있는 라인 찾기
-      if (guideline.id === 'SC-003' && line.includes('Statement') && line.includes('executeQuery')) {
-        problematicLines.push({ line: index + 1, code: line.trim() });
-      } else if (guideline.id === 'SC-006' && line.match(/(password|pwd)\s*=\s*"[^"]+"/i)) {
-        problematicLines.push({ line: index + 1, code: line.trim() });
-      } else if (guideline.id === 'SC-015' && line.match(/(password|pwd|secret|key|api[_-]?key)\s*=\s*"[^"]+"/i)) {
-        problematicLines.push({ line: index + 1, code: line.trim() });
-      } else if (guideline.id === 'SC-008' && (line.includes('printStackTrace') || (line.includes('e.getMessage()') && line.includes('response')))) {
-        problematicLines.push({ line: index + 1, code: line.trim() });
-      } else if (guideline.id === 'SC-004' && (line.includes('response.getWriter') || line.includes('out.print')) && !line.includes('escapeHtml')) {
-        problematicLines.push({ line: index + 1, code: line.trim() });
+      switch(guideline.id) {
+        case 'SC-001': // 입력값 길이 검증
+          if ((trimmedLine.includes('Scanner') || trimmedLine.includes('BufferedReader') || trimmedLine.includes('nextLine()') || trimmedLine.includes('readLine()')) && 
+              !code.match(new RegExp(`\\b${trimmedLine.split(/[=;]/)[0]}\\s*\\.\\s*length\\(\\)`, 'i'))) {
+            problematicLines.push({ line: lineNum, code: trimmedLine });
+          }
+          break;
+        case 'SC-002': // 입력값 형식 검증
+          if (trimmedLine.includes('Integer.parseInt') || trimmedLine.includes('Double.parseDouble') || trimmedLine.includes('Long.parseLong')) {
+            problematicLines.push({ line: lineNum, code: trimmedLine });
+          }
+          break;
+        case 'SC-003': // SQL Injection
+          if ((trimmedLine.includes('Statement') && trimmedLine.includes('executeQuery')) || 
+              (trimmedLine.includes('executeQuery') && !trimmedLine.includes('PreparedStatement')) ||
+              (trimmedLine.match(/["']\s*\+\s*\w+.*SELECT|INSERT|UPDATE|DELETE/i))) {
+            problematicLines.push({ line: lineNum, code: trimmedLine });
+          }
+          break;
+        case 'SC-004': // XSS
+          if ((trimmedLine.includes('response.getWriter') || trimmedLine.includes('out.print') || trimmedLine.includes('println')) && 
+              !trimmedLine.includes('escapeHtml') && !trimmedLine.includes('escape')) {
+            problematicLines.push({ line: lineNum, code: trimmedLine });
+          }
+          break;
+        case 'SC-005': // Path Traversal
+          if ((trimmedLine.includes('new File(') || trimmedLine.includes('FileInputStream')) && 
+              (trimmedLine.includes('request.getParameter') || trimmedLine.includes('userInput') || trimmedLine.match(/File\s*\(\s*\w+.*\)/))) {
+            problematicLines.push({ line: lineNum, code: trimmedLine });
+          }
+          break;
+        case 'SC-006': // 하드코딩된 비밀번호
+          if (trimmedLine.match(/(password|pwd)\s*=\s*"[^"]+"/i)) {
+            problematicLines.push({ line: lineNum, code: trimmedLine });
+          }
+          break;
+        case 'SC-007': // 암호화되지 않은 통신
+          if (trimmedLine.includes('http://') && !trimmedLine.includes('https://')) {
+            problematicLines.push({ line: lineNum, code: trimmedLine });
+          }
+          break;
+        case 'SC-008': // 예외 정보 노출
+          if (trimmedLine.includes('printStackTrace') || 
+              (trimmedLine.includes('e.getMessage()') && (trimmedLine.includes('response') || trimmedLine.includes('out.print')))) {
+            problematicLines.push({ line: lineNum, code: trimmedLine });
+          }
+          break;
+        case 'SC-015': // 하드코딩된 키
+          if (trimmedLine.match(/(password|pwd|secret|key|api[_-]?key)\s*=\s*"[^"]+"/i)) {
+            problematicLines.push({ line: lineNum, code: trimmedLine });
+          }
+          break;
+        default:
+          // 일반적인 패턴 매칭
+          if (guideline.check && guideline.check(code)) {
+            // 해당 라인에 문제가 있는지 확인
+            const context = this.getLineContext(code, index, 5);
+            if (context.match(new RegExp(guideline.check.toString().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))) {
+              problematicLines.push({ line: lineNum, code: trimmedLine });
+            }
+          }
       }
     });
     
     return problematicLines;
+  }
+  
+  getLineContext(code, lineIndex, contextSize) {
+    const lines = code.split('\n');
+    const start = Math.max(0, lineIndex - contextSize);
+    const end = Math.min(lines.length, lineIndex + contextSize + 1);
+    return lines.slice(start, end).join('\n');
   }
   
   extractBeforeCode(code, guideline) {
@@ -609,15 +675,144 @@ list.stream().forEach(item -> {
     
     if (problematicLines.length === 0) return '';
     
-    // 문제가 있는 라인 주변 코드 추출 (앞뒤 3줄씩)
+    // 문제가 있는 라인 주변 코드 추출 (앞뒤 5줄씩)
     const result = [];
-    problematicLines.forEach(({ line }) => {
-      const start = Math.max(0, line - 4);
-      const end = Math.min(lines.length, line + 3);
-      result.push(`// 라인 ${line} 주변 코드:\n${lines.slice(start, end).join('\n')}`);
+    problematicLines.forEach(({ line, code: lineCode }) => {
+      const start = Math.max(0, line - 6);
+      const end = Math.min(lines.length, line + 4);
+      const context = lines.slice(start, end);
+      result.push(`// 라인 ${line}:\n${context.join('\n')}`);
     });
     
-    return result.join('\n\n');
+    return result.join('\n\n---\n\n');
+  }
+  
+  generateFixedCode(code, guideline, problematicLines) {
+    if (problematicLines.length === 0) return '';
+    
+    const lines = code.split('\n');
+    const fixedCodeBlocks = [];
+    
+    problematicLines.forEach(({ line, code: lineCode }) => {
+      const lineIndex = line - 1;
+      const originalLine = lines[lineIndex];
+      let fixedLine = originalLine;
+      
+      switch(guideline.id) {
+        case 'SC-003': // SQL Injection - PreparedStatement로 변경
+          if (originalLine.includes('Statement') && originalLine.includes('executeQuery')) {
+            // SQL 쿼리 찾기
+            const sqlMatch = code.match(/String\s+sql\s*=\s*"([^"]+)"/);
+            if (sqlMatch) {
+              const sql = sqlMatch[1];
+              // 동적 값 추출
+              const dynamicValue = sql.match(/\+?\s*(\w+)/);
+              if (dynamicValue) {
+                const varName = dynamicValue[1];
+                // PreparedStatement 버전 생성
+                fixedLine = originalLine.replace(
+                  /Statement\s+\w+\s*=\s*\w+\.createStatement\(\)/,
+                  'PreparedStatement pstmt = conn.prepareStatement(sql)'
+                ).replace(
+                  /\.executeQuery\([^)]*\)/,
+                  '.executeQuery()'
+                );
+                // SQL 쿼리 수정
+                const fixedSql = sql.replace(/\+?\s*\w+/, '?');
+                fixedCodeBlocks.push({
+                  line: line,
+                  before: `String sql = "${sql}";\n${originalLine}`,
+                  after: `String sql = "${fixedSql}";\nPreparedStatement pstmt = conn.prepareStatement(sql);\npstmt.setInt(1, ${varName});\nResultSet rs = pstmt.executeQuery();`
+                });
+              }
+            }
+          }
+          break;
+        case 'SC-004': // XSS - escapeHtml 추가
+          if (originalLine.includes('response.getWriter') || originalLine.includes('out.print')) {
+            const varMatch = originalLine.match(/\.(print|println)\(([^)]+)\)/);
+            if (varMatch) {
+              const varName = varMatch[2].trim();
+              fixedLine = originalLine.replace(
+                varName,
+                `StringEscapeUtils.escapeHtml4(${varName})`
+              );
+              fixedCodeBlocks.push({
+                line: line,
+                before: originalLine,
+                after: `import org.apache.commons.text.StringEscapeUtils;\n\n${fixedLine}`
+              });
+            }
+          }
+          break;
+        case 'SC-008': // 예외 정보 노출 - 로깅으로 변경
+          if (originalLine.includes('printStackTrace')) {
+            fixedLine = originalLine.replace(
+              /\.printStackTrace\(\)/,
+              '// 로그로 변경\nlogger.error("오류 발생", e);'
+            );
+            fixedCodeBlocks.push({
+              line: line,
+              before: originalLine,
+              after: fixedLine
+            });
+          } else if (originalLine.includes('e.getMessage()') && originalLine.includes('response')) {
+            fixedLine = originalLine.replace(
+              /response\.(getWriter\(\)\.print|out\.print)\([^)]+\)/,
+              'logger.error("오류 발생", e);\nresponse.getWriter().print("처리 중 오류가 발생했습니다.");'
+            );
+            fixedCodeBlocks.push({
+              line: line,
+              before: originalLine,
+              after: fixedLine
+            });
+          }
+          break;
+        case 'SC-015': // 하드코딩된 키 - 환경 변수로 변경
+          const keyMatch = originalLine.match(/(\w+)\s*=\s*"([^"]+)"/);
+          if (keyMatch) {
+            const varName = keyMatch[1];
+            fixedLine = originalLine.replace(
+              /=\s*"[^"]+"/,
+              '= System.getenv("' + varName.toUpperCase() + '");'
+            );
+            fixedCodeBlocks.push({
+              line: line,
+              before: originalLine,
+              after: fixedLine + '\nif (' + varName + ' == null || ' + varName + '.isEmpty()) {\n    throw new IllegalStateException("' + varName.toUpperCase() + ' 환경 변수가 설정되지 않았습니다.");\n}'
+            });
+          }
+          break;
+        case 'SC-002': // 입력값 형식 검증
+          if (originalLine.includes('parseInt') || originalLine.includes('parseDouble')) {
+            const varMatch = originalLine.match(/(\w+)\s*=\s*\w+\.parse(Int|Double|Long)\(([^)]+)\)/);
+            if (varMatch) {
+              const varName = varMatch[1];
+              const inputVar = varMatch[3];
+              fixedLine = `try {\n    ${originalLine}\n} catch (NumberFormatException e) {\n    throw new IllegalArgumentException("잘못된 숫자 형식: " + ${inputVar});\n}`;
+              fixedCodeBlocks.push({
+                line: line,
+                before: originalLine,
+                after: fixedLine
+              });
+            }
+          }
+          break;
+        default:
+          // 기본 수정 방법
+          fixedCodeBlocks.push({
+            line: line,
+            before: originalLine,
+            after: '// ' + guideline.name + '에 맞게 수정 필요\n' + originalLine
+          });
+      }
+    });
+    
+    if (fixedCodeBlocks.length === 0) return '';
+    
+    return fixedCodeBlocks.map(block => 
+      `// 라인 ${block.line} 수정:\n// Before:\n${block.before}\n\n// After:\n${block.after}`
+    ).join('\n\n---\n\n');
   }
   
   getSecureCodingGuidelines() {
