@@ -186,11 +186,40 @@ function displayResults(data) {
                             ${secureCoding.issues.map(issue => `
                                 <li>
                                     <strong>[${issue.severity}]</strong> ${issue.name}: ${issue.issue}
+                                    ${issue.lines && issue.lines.length > 0 ? `<br><small style="color: #666;">문제 라인: ${issue.lines.map(l => l.line).join(', ')}</small>` : ''}
                                 </li>
                             `).join('')}
                         </ul>
                     </div>
                 ` : '<p style="color: green;">✅ 보안 이슈가 발견되지 않았습니다.</p>'}
+            </div>
+        ` : ''}
+        ${data.code_fixes && data.code_fixes.length > 0 ? `
+            <div class="review-section" style="border-left-color: #4caf50; background: #f1f8f4;">
+                <h3>🔧 구체적인 코드 수정 가이드</h3>
+                <p style="margin-bottom: 15px;">시큐어 코딩 가이드에 맞게 다음과 같이 수정하세요:</p>
+                ${data.code_fixes.map((fix, idx) => `
+                    <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #ddd;">
+                        <h4 style="color: #f44336; margin-bottom: 10px;">
+                            ${idx + 1}. ${fix.name} [${fix.severity}]
+                        </h4>
+                        ${fix.before ? `
+                            <div style="margin-bottom: 15px;">
+                                <strong style="color: #f44336;">❌ 현재 코드 (수정 필요):</strong>
+                                <pre style="background: #ffebee; padding: 10px; border-radius: 5px; overflow-x: auto; font-size: 0.9em; margin-top: 5px;">${fix.before}</pre>
+                            </div>
+                        ` : ''}
+                        <div>
+                            <strong style="color: #4caf50;">✅ 수정된 코드 (시큐어 코딩 가이드 준수):</strong>
+                            <pre style="background: #e8f5e9; padding: 10px; border-radius: 5px; overflow-x: auto; font-size: 0.9em; margin-top: 5px; white-space: pre-wrap;">${fix.after}</pre>
+                        </div>
+                        ${fix.explanation ? `
+                            <div style="margin-top: 10px; padding: 10px; background: #e3f2fd; border-radius: 5px;">
+                                <strong>💡 설명:</strong> ${fix.explanation}
+                            </div>
+                        ` : ''}
+                    </div>
+                `).join('')}
             </div>
         ` : ''}
         ${review.best_practices ? `

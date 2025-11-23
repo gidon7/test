@@ -528,6 +528,7 @@ list.stream().forEach(item -> {
   checkSecureCoding(code) {
     const issues = [];
     const suggestions = [];
+    const codeFixes = []; // 구체적인 코드 수정 제안
     let totalChecked = 0;
     
     // CWEAP 시큐어 코딩 가이드 49개 항목 체크
@@ -537,12 +538,17 @@ list.stream().forEach(item -> {
       category.forEach(guideline => {
         totalChecked++;
         if (guideline.check(code)) {
+          // 문제가 발견된 코드 라인 찾기
+          const problematicLines = this.findProblematicLines(code, guideline);
+          
           issues.push({
             id: guideline.id,
             name: guideline.name,
             issue: guideline.issue,
-            severity: guideline.severity
+            severity: guideline.severity,
+            lines: problematicLines
           });
+          
           suggestions.push({
             id: guideline.id,
             name: guideline.name,
@@ -550,11 +556,60 @@ list.stream().forEach(item -> {
             suggestion: guideline.suggestion,
             severity: guideline.severity
           });
+          
+          // 구체적인 수정 방법 추가
+          codeFixes.push({
+            id: guideline.id,
+            name: guideline.name,
+            severity: guideline.severity,
+            before: this.extractBeforeCode(code, guideline),
+            after: guideline.afterCode || guideline.suggestion,
+            explanation: guideline.explanation || `이 부분을 시큐어 코딩 가이드에 맞게 수정해야 합니다.`
+          });
         }
       });
     });
     
-    return { issues, suggestions, totalChecked };
+    return { issues, suggestions, codeFixes, totalChecked };
+  }
+  
+  findProblematicLines(code, guideline) {
+    const lines = code.split('\n');
+    const problematicLines = [];
+    
+    lines.forEach((line, index) => {
+      // 각 가이드라인별로 문제가 있는 라인 찾기
+      if (guideline.id === 'SC-003' && line.includes('Statement') && line.includes('executeQuery')) {
+        problematicLines.push({ line: index + 1, code: line.trim() });
+      } else if (guideline.id === 'SC-006' && line.match(/(password|pwd)\s*=\s*"[^"]+"/i)) {
+        problematicLines.push({ line: index + 1, code: line.trim() });
+      } else if (guideline.id === 'SC-015' && line.match(/(password|pwd|secret|key|api[_-]?key)\s*=\s*"[^"]+"/i)) {
+        problematicLines.push({ line: index + 1, code: line.trim() });
+      } else if (guideline.id === 'SC-008' && (line.includes('printStackTrace') || (line.includes('e.getMessage()') && line.includes('response')))) {
+        problematicLines.push({ line: index + 1, code: line.trim() });
+      } else if (guideline.id === 'SC-004' && (line.includes('response.getWriter') || line.includes('out.print')) && !line.includes('escapeHtml')) {
+        problematicLines.push({ line: index + 1, code: line.trim() });
+      }
+    });
+    
+    return problematicLines;
+  }
+  
+  extractBeforeCode(code, guideline) {
+    const lines = code.split('\n');
+    const problematicLines = this.findProblematicLines(code, guideline);
+    
+    if (problematicLines.length === 0) return '';
+    
+    // 문제가 있는 라인 주변 코드 추출 (앞뒤 3줄씩)
+    const result = [];
+    problematicLines.forEach(({ line }) => {
+      const start = Math.max(0, line - 4);
+      const end = Math.min(lines.length, line + 3);
+      result.push(`// 라인 ${line} 주변 코드:\n${lines.slice(start, end).join('\n')}`);
+    });
+    
+    return result.join('\n\n');
   }
   
   getSecureCodingGuidelines() {
@@ -1154,6 +1209,28 @@ private String getApiKey() {
     return Optional.ofNullable(System.getenv("API_KEY"))
         .orElseThrow(() -> new IllegalStateException("API_KEY가 설정되지 않았습니다."));
 }`,
+          afterCode: `// ✅ 수정 방법: 하드코딩된 값을 환경 변수나 설정 파일로 이동
+
+// 1. 하드코딩된 값 제거
+// ❌ 삭제: String apiKey = "sk-1234567890abcdef";
+
+// 2. 환경 변수에서 읽기
+String apiKey = System.getenv("API_KEY");
+if (apiKey == null || apiKey.isEmpty()) {
+    throw new IllegalStateException("API_KEY 환경 변수가 설정되지 않았습니다.");
+}
+
+// 3. 또는 Java 8 Optional 사용
+private String getApiKey() {
+    return Optional.ofNullable(System.getenv("API_KEY"))
+        .orElseThrow(() -> new IllegalStateException("API_KEY가 설정되지 않았습니다."));
+}
+
+// 4. 설정 파일 사용 (application.properties)
+// api.key=${API_KEY}
+// @Value("${api.key}")
+// private String apiKey;`,
+          explanation: '비밀번호나 API 키를 코드에 직접 작성하면 버전 관리 시스템에 노출되고, 코드 변경 없이 값을 변경할 수 없습니다. 환경 변수나 설정 파일을 사용하세요.',
           severity: 'CRITICAL'
         }
       ],
