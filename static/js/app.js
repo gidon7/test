@@ -167,7 +167,7 @@ function displayResults(data) {
         ` : ''}
         ${review.suggestions ? `
             <div class="review-section">
-                <h3>💡 상세 개선 제안 (Java 8 최적화)</h3>
+                <h3>💡 상세 개선 제안</h3>
                 <div style="white-space: pre-wrap; font-family: 'Courier New', monospace; background: #f5f5f5; padding: 15px; border-radius: 5px; overflow-x: auto;">${escapeHtml(review.suggestions)}</div>
             </div>
         ` : ''}
@@ -226,7 +226,7 @@ function displayResults(data) {
         })() : ''}
         ${review.best_practices ? `
             <div class="review-section">
-                <h3>⭐ Java 8 Best Practice</h3>
+                <h3>⭐ Best Practice</h3>
                 <p>${review.best_practices}</p>
             </div>
         ` : ''}

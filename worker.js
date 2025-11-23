@@ -1,5 +1,5 @@
 // Cloudflare Workers용 Java 코드 리뷰 시스템
-// Java 8 최적화 + CWEAP 시큐어 코딩 가이드 49개 항목
+// Java 1.8 개선 제안 + CWEAP 시큐어 코딩 가이드 49개 항목
 
 // 코드 분석기 (규칙 기반, API 키 불필요)
 class JavaCodeAnalyzer {
@@ -12,18 +12,18 @@ class JavaCodeAnalyzer {
     
     const structure = this.analyzeStructure(code);
     
-    // 1. 코드 품질 체크 (Java 8 최적화)
+    // 1. 코드 품질 체크
     const quality = this.checkCodeQuality(code, lines);
     issues.push(...quality.issues);
     suggestions.push(...quality.suggestions);
     strengths.push(...quality.strengths);
     
-    // 2. Best Practice 체크 (Java 8)
+    // 2. Best Practice 체크
     const bestPractices = this.checkBestPractices(code, lines);
     issues.push(...bestPractices.issues);
     suggestions.push(...bestPractices.suggestions);
     
-    // 3. 성능 체크 (Java 8)
+    // 3. 성능 체크
     const performance = this.checkPerformance(code);
     issues.push(...performance.issues);
     suggestions.push(...performance.suggestions);
@@ -34,7 +34,7 @@ class JavaCodeAnalyzer {
     suggestions.push(...security.suggestions);
     issues.push(...security.issues.map(i => `🔒 [${i.severity}] ${i.name}: ${i.issue}`));
     
-    // 5. Java 8 최적화 제안 (실제 코드 기반)
+    // 5. 코드 개선 제안 (실제 코드 기반)
     const java8Fixes = this.findJava8Optimizations(code);
     
     return {
@@ -73,7 +73,7 @@ class JavaCodeAnalyzer {
         
         formatted += '### ' + idxNum + '. ' + name + ' [' + severity + ']\n\n';
         formatted += '**문제점:** ' + issue + '\n\n';
-        formatted += '**개선 방안 (Java 8):**\n```java\n' + suggestion + '\n```\n\n';
+        formatted += '**개선 방안:**\n```java\n' + suggestion + '\n```\n\n';
       });
     }
     
@@ -101,7 +101,7 @@ class JavaCodeAnalyzer {
     const longMethods = this.findLongMethods(code);
     if (longMethods.length > 0) {
       issues.push(`⚠️ 긴 메서드: ${longMethods.length}개의 메서드가 50줄을 초과합니다.`);
-      suggestions.push(`💡 **Java 8 방식 - 메서드 분리:**
+      suggestions.push(`💡 **메서드 분리:**
 
 \`\`\`java
 // ❌ 긴 메서드
@@ -125,7 +125,7 @@ private void validateOrder(Order order) {
     // 검증 로직
 }
 
-// Java 8 Stream 활용
+// Stream API 활용
 private void processOrderItems(List<OrderItem> items) {
     items.stream()
         .filter(this::isValidItem)
@@ -139,7 +139,7 @@ private void processOrderItems(List<OrderItem> items) {
     const magicNumbers = code.match(/\b\d{2,}\b/g);
     if (magicNumbers && magicNumbers.length > 5) {
       issues.push(`⚠️ 매직 넘버: 숫자 리터럴이 ${magicNumbers.length}개 사용되고 있습니다.`);
-      suggestions.push(`💡 **Java 8 방식 - 상수 정의:**
+      suggestions.push(`💡 **상수 정의:**
 
 \`\`\`java
 // ❌ 매직 넘버 사용
@@ -164,7 +164,7 @@ if (user.getAge() > UserConstants.MIN_AGE &&
     // ...
 }
 
-// 또는 Enum 사용 (Java 8)
+// 또는 Enum 사용
 public enum AgeLimit {
     MIN(18), MAX(65);
     private final int value;
@@ -178,7 +178,7 @@ public enum AgeLimit {
     const commentRatio = lines.filter(l => l.trim().startsWith('//') || l.includes('/*')).length / lines.length;
     if (commentRatio < 0.1) {
       issues.push(`⚠️ 주석 부족: 주석 비율이 ${(commentRatio * 100).toFixed(1)}%입니다.`);
-      suggestions.push(`💡 **Java 8 방식 - JavaDoc 주석:**
+      suggestions.push(`💡 **JavaDoc 주석:**
 
 \`\`\`java
 /**
@@ -213,7 +213,7 @@ public List<User> filterActiveUsers(List<User> users) {
     const badNames = code.match(/\b(a|b|c|temp|tmp|data|obj)\b/g);
     if (badNames && badNames.length > 10) {
       issues.push(`⚠️ 의미 없는 변수명: ${badNames.length}개의 불명확한 변수명이 사용되고 있습니다.`);
-      suggestions.push(`💡 **Java 8 방식 - 의미 있는 변수명:**
+      suggestions.push(`💡 **의미 있는 변수명:**
 
 \`\`\`java
 // ❌ 의미 없는 변수명
@@ -226,7 +226,7 @@ String userProfile = getUserProfile();
 User currentUser = processUserProfile(userProfile);
 int totalPrice = calculateTotalPrice(currentUser);
 
-// Java 8 람다에서도 의미 있는 이름
+// 람다에서도 의미 있는 이름
 users.stream()
     .filter(user -> user.isActive())  // user는 명확함
     .map(activeUser -> activeUser.getName())  // activeUser로 더 명확
@@ -249,7 +249,7 @@ List<String> activeUserNames = users.stream()
     // 접근 제어자 체크
     if (!code.match(/\bprivate\s+\w+/) && code.match(/\bpublic\s+\w+\s+\w+\s*[=;]/)) {
       issues.push(`⚠️ 접근 제어자: 필드가 public으로 선언되어 있습니다.`);
-      suggestions.push(`💡 **Java 8 방식 - 캡슐화:**
+      suggestions.push(`💡 **캡슐화:**
 
 \`\`\`java
 // ❌ public 필드
@@ -274,13 +274,13 @@ public class User {
         this.name = name;
     }
     
-    // Java 8 Optional 활용
+    // Optional 활용
     public Optional<String> getOptionalName() {
         return Optional.ofNullable(name);
     }
 }
 
-// 또는 Lombok 사용 (Java 8 호환)
+// 또는 Lombok 사용
 @Data
 @Getter
 @Setter
@@ -298,7 +298,7 @@ public class User {
     // 예외 처리 체크
     if (code.includes('throws') && !code.includes('try') && !code.includes('catch')) {
       issues.push(`⚠️ 예외 처리: throws만 선언하고 실제 처리가 없습니다.`);
-      suggestions.push(`💡 **Java 8 방식 - 예외 처리:**
+      suggestions.push(`💡 **예외 처리:**
 
 \`\`\`java
 // ❌ 예외를 그냥 던짐
@@ -336,7 +336,7 @@ public Optional<String> readFileSafely(String filename) {
     // null 안전성 체크
     if (code.includes('str.equals(') || code.match(/\w+\.equals\([^)]+\)/)) {
       issues.push(`⚠️ NullPointerException 위험: 변수.equals() 패턴 사용`);
-      suggestions.push(`💡 **Java 8 방식 - null 안전한 equals:**
+      suggestions.push(`💡 **null 안전한 equals:**
 
 \`\`\`java
 // ❌ 위험한 코드
@@ -349,7 +349,7 @@ if ("value".equals(str)) {  // null 안전
     // ...
 }
 
-// Java 8 Objects.equals() 사용
+// Objects.equals() 사용
 import java.util.Objects;
 
 if (Objects.equals(str, "value")) {
@@ -372,7 +372,7 @@ optionalStr.filter("value"::equals).ifPresent(s -> {
     // 리소스 관리 체크
     if ((code.includes('new FileInputStream') || code.includes('new BufferedReader') || code.includes('new FileWriter')) && !code.includes('try-with-resources') && !code.includes('finally')) {
       issues.push(`⚠️ 리소스 관리: try-with-resources를 사용하지 않습니다.`);
-      suggestions.push(`💡 **Java 8 방식 - try-with-resources:**
+      suggestions.push(`💡 **try-with-resources:**
 
 \`\`\`java
 // ❌ 위험한 코드 (리소스 누수 가능)
@@ -390,7 +390,7 @@ try (FileInputStream fis = new FileInputStream(file);
     }
 } // 자동으로 리소스 닫힘
 
-// Java 8 Files API 사용 (더 간단)
+// Files API 사용 (더 간단)
 try {
     List<String> lines = Files.readAllLines(Paths.get(filePath), StandardCharsets.UTF_8);
     lines.forEach(this::processLine);
@@ -398,7 +398,7 @@ try {
     logger.error("파일 읽기 실패", e);
 }
 
-// Java 8 Stream과 함께
+// Stream과 함께
 try (Stream<String> lines = Files.lines(Paths.get(filePath))) {
     lines.filter(line -> !line.isEmpty())
          .map(String::toUpperCase)
@@ -409,8 +409,8 @@ try (Stream<String> lines = Files.lines(Paths.get(filePath))) {
     
     // Java 8 특화 체크
     if (code.includes('for (') && code.includes('.size()') && !code.includes('stream()')) {
-      issues.push(`⚠️ Java 8 스타일: 반복문을 Stream API로 개선할 수 있습니다.`);
-      suggestions.push(`💡 **Java 8 방식 - Stream API 활용:**
+      issues.push(`⚠️ 반복문을 Stream API로 개선할 수 있습니다.`);
+      suggestions.push(`💡 **Stream API 활용:**
 
 \`\`\`java
 // ❌ 전통적인 반복문
@@ -421,7 +421,7 @@ for (int i = 0; i < list.size(); i++) {
     }
 }
 
-// ✅ Java 8 Stream API
+// ✅ Stream API
 List<String> result = list.stream()
     .filter(s -> s.startsWith("A"))
     .map(String::toUpperCase)
@@ -452,7 +452,7 @@ Optional<User> user = users.stream()
     const stringConcat = code.match(/"[^"]*"\s*\+\s*"[^"]*"/g);
     if (stringConcat && stringConcat.length > 3) {
       issues.push(`⚠️ 성능: 문자열 연결 시 + 연산자를 ${stringConcat.length}번 사용하고 있습니다.`);
-      suggestions.push(`💡 **Java 8 방식 - 효율적인 문자열 연결:**
+      suggestions.push(`💡 **효율적인 문자열 연결:**
 
 \`\`\`java
 // ❌ 비효율적인 문자열 연결
@@ -463,10 +463,10 @@ StringBuilder sb = new StringBuilder();
 sb.append("Hello").append(" ").append("World").append(" ").append(name).append("!");
 String result = sb.toString();
 
-// ✅ Java 8 String.join() 사용
+// ✅ String.join() 사용
 String result = String.join(" ", "Hello", "World", name, "!");
 
-// ✅ Java 8 Stream과 Collectors.joining()
+// ✅ Stream과 Collectors.joining()
 List<String> parts = Arrays.asList("Hello", "World", name, "!");
 String result = parts.stream()
     .filter(s -> s != null && !s.isEmpty())
@@ -479,7 +479,7 @@ for (String item : items) {
 }
 String result = sb.toString().replaceAll(", $", "");
 
-// 또는 Java 8 방식
+// 또는 Stream 방식
 String result = items.stream()
     .collect(Collectors.joining(", "));
 \`\`\``);
@@ -488,7 +488,7 @@ String result = items.stream()
     // 불필요한 객체 생성 체크
     if (code.match(/new\s+String\s*\(/g)) {
       issues.push(`⚠️ 불필요한 객체 생성: new String() 사용`);
-      suggestions.push(`💡 **Java 8 방식 - 문자열 리터럴 사용:**
+      suggestions.push(`💡 **문자열 리터럴 사용:**
 
 \`\`\`java
 // ❌ 불필요한 객체 생성
@@ -507,7 +507,7 @@ if ("value".equals(str)) {  // null 안전
     // 반복문에서 size() 호출 체크
     if (code.includes('for (') && code.match(/\.size\(\)/g) && code.match(/\.size\(\)/g).length > 1) {
       issues.push(`⚠️ 성능: 반복문에서 .size()를 반복 호출하고 있습니다.`);
-      suggestions.push(`💡 **Java 8 방식 - 효율적인 반복:**
+      suggestions.push(`💡 **효율적인 반복:**
 
 \`\`\`java
 // ❌ 비효율적
@@ -526,7 +526,7 @@ for (String item : list) {
     // ...
 }
 
-// ✅ Java 8 Stream 사용 (가장 권장)
+// ✅ Stream 사용 (가장 권장)
 list.stream().forEach(item -> {
     // ...
 });
@@ -836,14 +836,14 @@ list.stream().forEach(item -> {
           if (listVarMatch) {
             const listVar = listVarMatch[1];
             const before = lines.slice(index, Math.min(index + 5, lines.length)).join('\n');
-            const after = `// Java 8 Stream API 사용\n${listVar}.stream()\n    .forEach(item -> {\n        // 처리 로직\n    });`;
+            const after = `// Stream API 사용\n${listVar}.stream()\n    .forEach(item -> {\n        // 처리 로직\n    });`;
             optimizations.push({
               id: 'J8-001',
               name: '전통적인 for문을 Stream API로 변환',
               severity: 'MEDIUM',
               before: before,
               after: after,
-              explanation: `라인 ${lineNum}의 전통적인 for문을 Java 8 Stream API로 변환하면 더 간결하고 함수형 프로그래밍 스타일이 됩니다.`,
+              explanation: `라인 ${lineNum}의 전통적인 for문을 Stream API로 변환하면 더 간결하고 함수형 프로그래밍 스타일이 됩니다.`,
               lines: [{ line: lineNum, code: trimmedLine }]
             });
           }
@@ -853,14 +853,14 @@ list.stream().forEach(item -> {
       // 2. 문자열 연결을 StringBuilder나 String.join으로
       if (trimmedLine.match(/["'][^"']*"\s*\+\s*["']/)) {
         const before = trimmedLine;
-        const after = `// Java 8 String.join() 사용\nString result = String.join("", "part1", "part2", "part3");`;
+        const after = `// String.join() 사용\nString result = String.join("", "part1", "part2", "part3");`;
         optimizations.push({
           id: 'J8-002',
           name: '문자열 연결 최적화',
           severity: 'LOW',
           before: before,
           after: after,
-          explanation: `라인 ${lineNum}의 문자열 연결을 Java 8 String.join() 또는 StringBuilder로 최적화할 수 있습니다.`,
+          explanation: `라인 ${lineNum}의 문자열 연결을 String.join() 또는 StringBuilder로 최적화할 수 있습니다.`,
           lines: [{ line: lineNum, code: trimmedLine }]
         });
       }
@@ -871,14 +871,14 @@ list.stream().forEach(item -> {
         if (varMatch) {
           const varName = varMatch[1];
           const before = trimmedLine;
-          const after = `// Java 8 Optional 사용\nOptional.ofNullable(${varName}).ifPresent(value -> {\n    // 처리 로직\n});`;
+          const after = `// Optional 사용\nOptional.ofNullable(${varName}).ifPresent(value -> {\n    // 처리 로직\n});`;
           optimizations.push({
             id: 'J8-003',
             name: 'null 체크를 Optional로 변환',
             severity: 'MEDIUM',
             before: before,
             after: after,
-            explanation: `라인 ${lineNum}의 null 체크를 Java 8 Optional로 변환하면 더 안전하고 함수형 스타일이 됩니다.`,
+            explanation: `라인 ${lineNum}의 null 체크를 Optional로 변환하면 더 안전하고 함수형 스타일이 됩니다.`,
             lines: [{ line: lineNum, code: trimmedLine }]
           });
         }
@@ -896,7 +896,7 @@ list.stream().forEach(item -> {
           name: '입력값 길이 검증',
           check: (code) => (code.includes('Scanner') || code.includes('BufferedReader')) && !code.match(/\.length\(\)\s*[><=]/),
           issue: '입력값의 길이를 검증하지 않습니다.',
-          suggestion: `// Java 8 방식 - 입력값 길이 검증
+          suggestion: `// 입력값 길이 검증
 if (input == null || input.length() > MAX_LENGTH) {
     throw new IllegalArgumentException("입력값이 유효하지 않습니다.");
 }
@@ -923,7 +923,7 @@ private void validateInput(String input) {
           name: '입력값 형식 검증',
           check: (code) => code.includes('Integer.parseInt') || code.includes('Double.parseDouble'),
           issue: '입력값 형식 검증 없이 파싱하고 있습니다.',
-          suggestion: `// Java 8 방식 - 안전한 숫자 파싱
+          suggestion: `// 안전한 숫자 파싱
 // ❌ 위험한 코드
 int value = Integer.parseInt(input);
 
@@ -958,7 +958,7 @@ Optional<Integer> value = Optional.ofNullable(input)
           name: 'SQL Injection 방지',
           check: (code) => code.includes('Statement') && code.includes('executeQuery') && !code.includes('PreparedStatement'),
           issue: 'Statement를 사용하여 SQL Injection 위험이 있습니다.',
-          suggestion: '// Java 8 방식 - PreparedStatement 사용\n' +
+          suggestion: '// PreparedStatement 사용\n' +
 '// ❌ 위험한 코드\n' +
 'String sql = "SELECT * FROM users WHERE id = " + user_id;\n' +
 'Statement stmt = conn.createStatement();\n' +
@@ -993,7 +993,7 @@ Optional<Integer> value = Optional.ofNullable(input)
           name: 'XSS 방지',
           check: (code) => (code.includes('response.getWriter') || code.includes('out.print')) && !code.includes('escapeHtml'),
           issue: '출력값 인코딩 없이 사용자 입력을 출력하고 있습니다.',
-          suggestion: `// Java 8 방식 - XSS 방지
+          suggestion: `// XSS 방지
 // ❌ 위험한 코드
 response.getWriter().print(userInput);
 
@@ -1025,7 +1025,7 @@ String json = mapper.writeValueAsString(data);`,
           name: 'Path Traversal 방지',
           check: (code) => code.includes('new File(') && (code.includes('userInput') || code.includes('request.getParameter')),
           issue: '사용자 입력을 파일 경로로 사용하고 있습니다.',
-          suggestion: `// Java 8 방식 - Path Traversal 방지
+          suggestion: `// Path Traversal 방지
 // ❌ 위험한 코드
 File file = new File(userInput);
 
@@ -1060,7 +1060,7 @@ private void validateFilePath(String filePath) {
           name: '비밀번호 평문 저장',
           check: (code) => code.match(/password\s*=\s*"[^"]+"/i) || (code.includes('password') && !code.includes('BCrypt') && !code.includes('PBKDF2') && !code.includes('hash')),
           issue: '비밀번호가 평문으로 저장되거나 전송되고 있습니다.',
-          suggestion: `// Java 8 방식 - BCrypt 사용
+          suggestion: `// BCrypt 사용
 // ❌ 위험한 코드
 String password = request.getParameter("password");
 user.setPassword(password);
@@ -1116,7 +1116,7 @@ public boolean verifyPassword(String password, String stored) throws Exception {
           name: '약한 암호화 알고리즘',
           check: (code) => code.includes('DES') || code.includes('MD5') || (code.includes('SHA1') && !code.includes('SHA256')),
           issue: '약한 암호화 알고리즘(DES, MD5, SHA1)을 사용하고 있습니다.',
-          suggestion: `// Java 8 방식 - 강한 암호화 알고리즘
+          suggestion: `// 강한 암호화 알고리즘
 // ❌ 위험한 코드
 MessageDigest md = MessageDigest.getInstance("MD5");
 Cipher cipher = Cipher.getInstance("DES");
@@ -1152,7 +1152,7 @@ byte[] encrypted = rsaCipher.doFinal(data.getBytes());`,
           name: '민감한 정보 노출',
           check: (code) => code.includes('printStackTrace') || (code.includes('e.getMessage()') && code.includes('response')),
           issue: '예외 메시지에 민감한 정보가 노출될 수 있습니다.',
-          suggestion: `// Java 8 방식 - 안전한 예외 처리
+          suggestion: `// 안전한 예외 처리
 // ❌ 위험한 코드
 try {
     // ...
@@ -1207,7 +1207,7 @@ public class GlobalExceptionHandler {
           name: '예외 무시',
           check: (code) => code.match(/catch\s*\([^)]+\)\s*\{\s*\}/) || code.match(/catch\s*\([^)]+\)\s*\{\s*\/\/.*\}/),
           issue: '예외를 catch하고 아무 처리도 하지 않습니다.',
-          suggestion: `// Java 8 방식 - 적절한 예외 처리
+          suggestion: `// 적절한 예외 처리
 // ❌ 위험한 코드
 try {
     processData();
@@ -1252,7 +1252,7 @@ public Optional<Result> processSafely() {
           name: '세션 고정 공격 방지',
           check: (code) => code.includes('HttpSession') && code.includes('setAttribute') && !code.includes('invalidate'),
           issue: '로그인 시 세션을 재생성하지 않습니다.',
-          suggestion: `// Java 8 방식 - 세션 재생성
+          suggestion: `// 세션 재생성
 // ❌ 위험한 코드
 HttpSession session = request.getSession();
 session.setAttribute("user", user);
@@ -1286,7 +1286,7 @@ newSession.setMaxInactiveInterval(30 * 60); // 30분
           name: '세션 하이재킹 방지',
           check: (code) => code.includes('HttpSession') && !code.includes('setSecure') && !code.includes('http-only'),
           issue: '세션 쿠키에 Secure, HttpOnly 플래그가 설정되지 않았습니다.',
-          suggestion: `// Java 8 방식 - 안전한 세션 쿠키
+          suggestion: `// 안전한 세션 쿠키
 // web.xml 설정
 <session-config>
     <cookie-config>
@@ -1319,7 +1319,7 @@ server.servlet.session.timeout=30m`,
           name: '권한 검증 누락',
           check: (code) => (code.includes('@RequestMapping') || code.includes('doGet') || code.includes('doPost')) && !code.includes('@PreAuthorize') && !code.includes('hasRole'),
           issue: '메서드나 엔드포인트에 권한 검증이 없습니다.',
-          suggestion: `// Java 8 방식 - 권한 검증
+          suggestion: `// 권한 검증
 // Spring Security 사용
 @PreAuthorize("hasRole('ADMIN')")
 @RequestMapping("/admin/users")
@@ -1363,7 +1363,7 @@ private boolean hasRole(String role) {
           name: '민감한 정보 로깅',
           check: (code) => code.match(/logger\.(info|debug|warn|error)\([^)]*password[^)]*\)/i) || code.match(/System\.out\.println\([^)]*password[^)]*\)/i),
           issue: '비밀번호 등 민감한 정보를 로그에 기록하고 있습니다.',
-          suggestion: `// Java 8 방식 - 안전한 로깅
+          suggestion: `// 안전한 로깅
 // ❌ 위험한 코드
 logger.info("로그인 시도: username=" + username + ", password=" + password);
 System.out.println("비밀번호: " + password);
@@ -1405,7 +1405,7 @@ private String maskCardNumber(String cardNumber) {
           name: '로깅 부재',
           check: (code) => !code.includes('logger') && !code.includes('Logger') && !code.includes('log4j') && code.includes('public') && code.includes('void'),
           issue: '중요한 작업에 대한 로깅이 없습니다.',
-          suggestion: `// Java 8 방식 - 적절한 로깅
+          suggestion: `// 적절한 로깅
 // SLF4J 사용 (권장)
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -1445,7 +1445,7 @@ if (logger.isDebugEnabled()) {
           name: '하드코딩된 비밀번호/키',
           check: (code) => code.match(/(password|pwd|secret|key|api[_-]?key)\s*=\s*"[^"]+"/i),
           issue: '비밀번호나 API 키가 코드에 하드코딩되어 있습니다.',
-          suggestion: `// Java 8 방식 - 환경 변수 사용
+          suggestion: `// 환경 변수 사용
 // ❌ 위험한 코드
 String apiKey = "sk-1234567890abcdef";
 String dbPassword = "mypassword123";
@@ -1516,7 +1516,7 @@ private String getApiKey() {
           name: 'HTTPS 미사용',
           check: (code) => code.includes('http://') && !code.includes('https://'),
           issue: 'HTTP 프로토콜을 사용하여 통신하고 있습니다.',
-          suggestion: `// Java 8 방식 - HTTPS 사용
+          suggestion: `// HTTPS 사용
 // ❌ 위험한 코드
 URL url = new URL("http://example.com/api");
 
@@ -1613,7 +1613,7 @@ CompletableFuture<String> future = CompletableFuture.supplyAsync(() -> {
     }
     
     if (suggestions.length > 0) {
-      review += `## 💡 상세 개선 제안 (Java 8 최적화)\n${suggestions.join('\n\n')}\n\n`;
+      review += `## 💡 상세 개선 제안\n${suggestions.join('\n\n')}\n\n`;
     }
     
     if (secureCodingIssues && secureCodingIssues.length > 0) {
@@ -1625,7 +1625,7 @@ CompletableFuture<String> future = CompletableFuture.supplyAsync(() -> {
       });
     }
     
-    review += `\n## 📚 Java 8 Best Practices\n${this.generateBestPractices(code, structure)}`;
+    review += `\n## 📚 Best Practices\n${this.generateBestPractices(code, structure)}`;
     return review;
   }
 }
@@ -1716,7 +1716,7 @@ export default {
                 strengths: '기본 분석이 완료되었습니다.',
                 improvements: '상세 분석 중 오류가 발생했습니다: ' + error.message,
                 suggestions: '코드를 다시 확인해주세요.',
-                best_practices: 'Java 8 Best Practice를 준수하세요.',
+                best_practices: 'Best Practice를 준수하세요.',
                 full_review: '분석 중 오류가 발생했습니다.',
                 secure_coding: {
                   total_checked: 0,
