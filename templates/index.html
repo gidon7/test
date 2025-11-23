@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Java 코드 리뷰 시스템</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>☕ Java 코드 리뷰 시스템</h1>
+            <p class="subtitle">AI 기반 코드 분석 및 개선 제안</p>
+        </header>
+
+        <div class="upload-section">
+            <div class="upload-box" id="uploadBox">
+                <input type="file" id="fileInput" accept=".java" style="display: none;">
+                <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                    <div class="upload-icon">📁</div>
+                    <p class="upload-text">Java 파일을 클릭하거나 드래그하여 업로드</p>
+                    <p class="upload-hint">.java 파일만 지원됩니다</p>
+                </div>
+            </div>
+            <div class="file-info" id="fileInfo" style="display: none;">
+                <span id="fileName"></span>
+                <button onclick="clearFile()" class="clear-btn">✕</button>
+            </div>
+        </div>
+
+        <div class="loading" id="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>코드를 분석하는 중...</p>
+        </div>
+
+        <div class="results-section" id="resultsSection" style="display: none;">
+            <div class="basic-analysis" id="basicAnalysis"></div>
+            <div class="ai-review" id="aiReview"></div>
+        </div>
+
+        <div class="error-message" id="errorMessage" style="display: none;"></div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
