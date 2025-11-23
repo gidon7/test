@@ -143,8 +143,27 @@ function displayResults(data) {
 
     // AI 리뷰 표시
     const review = data.ai_review;
+    const hasApiKey = data.api_key_configured !== false;
+    
     aiReview.innerHTML = `
-        <h2>🤖 AI 코드 리뷰</h2>
+        <h2>🤖 AI 코드 리뷰 ${!hasApiKey ? '<span style="color: #f44336; font-size: 0.6em;">(API 키 미설정)</span>' : ''}</h2>
+        ${!hasApiKey ? `
+            <div class="review-section" style="border-left-color: #f44336; background: #fff3cd;">
+                <h3>⚠️ OpenAI API 키 설정 필요</h3>
+                <p style="color: #856404;">
+                    AI 코드 리뷰 기능을 사용하려면 OpenAI API 키를 설정해야 합니다.<br><br>
+                    <strong>설정 방법:</strong><br>
+                    1. Cloudflare Dashboard 접속<br>
+                    2. Workers & Pages → 해당 Worker 선택<br>
+                    3. Settings → Variables → Secrets<br>
+                    4. "Add secret" 클릭<br>
+                    5. Name: <code>OPENAI_API_KEY</code><br>
+                    6. Value: API 키 입력<br><br>
+                    또는 Wrangler CLI 사용:<br>
+                    <code>wrangler secret put OPENAI_API_KEY</code>
+                </p>
+            </div>
+        ` : ''}
         ${review.explanation ? `
             <div class="review-section">
                 <h3>📝 코드 설명</h3>
