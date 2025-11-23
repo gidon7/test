@@ -569,7 +569,6 @@ list.stream().forEach(item -> {
           });
           
           // 구체적인 수정 방법 추가 - 실제 코드 기반
-          const problematicLines = this.findProblematicLines(code, guideline);
           if (problematicLines.length > 0) {
             const fixedCode = this.generateFixedCode(code, guideline, problematicLines);
             codeFixes.push({
