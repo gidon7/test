@@ -62,9 +62,15 @@ class JavaCodeAnalyzer {
     if (secureSuggestions && secureSuggestions.length > 0) {
       formatted += '## 🔒 시큐어 코딩 개선 제안 (CWEAP 가이드)\n\n';
       secureSuggestions.forEach((s, idx) => {
-        formatted += `### ${idx + 1}. ${s.name} [${s.severity}]\n\n`;
-        formatted += `**문제점:** ${s.issue}\n\n`;
-        formatted += `**개선 방안 (Java 8):**\n\`\`\`java\n${s.suggestion}\n\`\`\`\n\n`;
+        const idxNum = idx + 1;
+        const name = s.name || '';
+        const severity = s.severity || '';
+        const issue = s.issue || '';
+        const suggestion = s.suggestion || '';
+        
+        formatted += '### ' + idxNum + '. ' + name + ' [' + severity + ']\n\n';
+        formatted += '**문제점:** ' + issue + '\n\n';
+        formatted += '**개선 방안 (Java 8):**\n```java\n' + suggestion + '\n```\n\n';
       });
     }
     
