@@ -2,7 +2,7 @@
 // Java 1.8 개선 제안 + CWEAP 시큐어 코딩 가이드 49개 항목
 
 // 코드 분석기 (규칙 기반, API 키 불필요)
-class JavaCodeAnalyzer {
+export class JavaCodeAnalyzer {
   analyze(code, filename) {
     const lines = code.split('\n');
     const issues = [];
@@ -1747,7 +1747,7 @@ export default {
 };
 
 // 기본 코드 구조 분석
-function analyzeCodeStructure(code) {
+export function analyzeCodeStructure(code) {
   const lines = code.split('\n');
   const totalLines = lines.length;
   const codeLines = lines.filter(line => line.trim() && !line.trim().startsWith('//'));
