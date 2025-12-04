@@ -1703,11 +1703,23 @@ export class JSPCodeAnalyzer {
   }
   
   analyzeStructure(code) {
-    const hasInitJsp = code.includes('include file="/init.jsp"') || code.includes("include file='/init.jsp'");
+    // init.jsp 체크 - 다양한 패턴 고려 (절대경로, 상대경로, 공백, 따옴표 등)
+    const initJspPatterns = [
+      /include\s+file\s*=\s*["']\/init\.jsp["']/i,
+      /include\s+file\s*=\s*["']init\.jsp["']/i,
+      /include\s+file\s*=\s*["'][^"']*init\.jsp["']/i,
+      /\/init\.jsp/i,
+      /include.*init\.jsp/i
+    ];
+    const hasInitJsp = initJspPatterns.some(pattern => pattern.test(code));
+    
     const hasDao = code.match(/\w+Dao\s+\w+\s*=\s*new\s+\w+Dao\(\)/);
     const hasDataSet = code.includes('DataSet');
     const hasAuth = code.includes('Auth') || code.includes('auth.');
     const hasConfig = code.includes('Config.');
+    const hasForm = code.includes('f.addElement') || code.includes('f.get') || code.includes('f.validate');
+    const hasMalgn = code.includes('Malgn.') || code.includes('m.js') || code.includes('m.isPost') || code.includes('m.qs');
+    const hasTemplate = code.includes('p.setBody') || code.includes('p.setVar') || code.includes('p.setLoop') || code.includes('p.display');
     const hasTemplateVars = code.match(/\$\{[^}]+\}/g) || [];
     const hasScriptlet = code.match(/<%[^%]+%>/g) || [];
     
@@ -1717,6 +1729,9 @@ export class JSPCodeAnalyzer {
       dataSetCount: (code.match(/DataSet\s+\w+/g) || []).length,
       hasAuth: hasAuth,
       hasConfig: hasConfig,
+      hasForm: hasForm,
+      hasMalgn: hasMalgn,
+      hasTemplate: hasTemplate,
       templateVarCount: hasTemplateVars.length,
       scriptletCount: hasScriptlet.length,
       hasComments: code.includes('//') || code.includes('/*') || code.includes('<!--')
@@ -1726,8 +1741,16 @@ export class JSPCodeAnalyzer {
   checkFrameworkCompliance(code, lines) {
     const issues = [], suggestions = [], strengths = [];
     
-    // 1. init.jsp include 체크
-    if (!code.includes('include file="/init.jsp"') && !code.includes("include file='/init.jsp'")) {
+    // 1. init.jsp include 체크 - 정확한 패턴 매칭
+    const initJspPatterns = [
+      /include\s+file\s*=\s*["']\/init\.jsp["']/i,
+      /include\s+file\s*=\s*["']init\.jsp["']/i,
+      /\/init\.jsp/i,
+      /include.*init\.jsp/i
+    ];
+    const hasInitJsp = initJspPatterns.some(pattern => pattern.test(code));
+    
+    if (!hasInitJsp) {
       issues.push(`⚠️ 맑은프레임워크 가이드 위반: init.jsp를 include하지 않았습니다.`);
       suggestions.push(`💡 **init.jsp include (필수):**
 
@@ -1744,69 +1767,112 @@ export class JSPCodeAnalyzer {
       strengths.push(`✅ init.jsp include: 맑은프레임워크 가이드에 따라 init.jsp를 올바르게 include하고 있습니다.`);
     }
     
-    // 2. Dao 클래스 사용 체크
-    const daoUsage = code.match(/(\w+Dao)\s+(\w+)\s*=\s*new\s+(\w+Dao)\(\)/);
-    if (daoUsage) {
-      strengths.push(`✅ Dao 클래스 사용: ${daoUsage[1]}를 사용하여 데이터베이스 접근을 하고 있습니다.`);
-      
-      // find() 메서드 사용 체크
-      if (!code.includes('.find(')) {
-        issues.push(`⚠️ 맑은프레임워크 가이드: Dao의 find() 메서드를 사용하지 않았습니다.`);
-        suggestions.push(`💡 **Dao find() 메서드 사용:**
+    // 2. Dao 클래스 사용 체크 - 맥락을 고려한 분석
+    const daoUsages = code.match(/(\w+Dao)\s+(\w+)\s*=\s*new\s+(\w+Dao)\([^)]*\)/g) || [];
+    if (daoUsages.length > 0) {
+      daoUsages.forEach(daoUsage => {
+        const match = daoUsage.match(/(\w+Dao)\s+(\w+)\s*=\s*new\s+(\w+Dao)\(/);
+        if (match) {
+          const daoClassName = match[1];
+          const daoVarName = match[2];
+          strengths.push(`✅ Dao 클래스 사용: ${daoClassName}를 사용하여 데이터베이스 접근을 하고 있습니다.`);
+          
+          // Dao 변수가 실제로 사용되는지 확인
+          const daoVarUsage = new RegExp(`\\b${daoVarName}\\.[\\w]+\\(`, 'g');
+          const daoMethodCalls = code.match(daoVarUsage) || [];
+          
+          // 다양한 Dao 메서드 패턴 확인
+          const hasFind = daoMethodCalls.some(call => call.includes('.find('));
+          const hasInsert = daoMethodCalls.some(call => call.includes('.insert('));
+          const hasUpdate = daoMethodCalls.some(call => call.includes('.update('));
+          const hasDelete = daoMethodCalls.some(call => call.includes('.delete('));
+          const hasItem = daoMethodCalls.some(call => call.includes('.item('));
+          const hasOtherQueryMethods = daoMethodCalls.some(call => 
+            call.includes('.query(') || call.includes('.select(') || call.includes('.get(') || call.includes('.getSequence(')
+          );
+          
+          // Dao를 실제로 사용하는 경우
+          if (daoMethodCalls.length > 0) {
+            // insert/update/delete 패턴 사용 시 (정상적인 패턴)
+            if (hasInsert || hasUpdate || hasDelete) {
+              // item() 메서드와 함께 사용하는지 확인
+              if ((hasInsert || hasUpdate) && !hasItem) {
+                suggestions.push(`💡 **Dao item() 메서드 사용 (권장):**
 
 \`\`\`jsp
 <%
-UserDao user = new UserDao();
-DataSet info = user.find("user_id = 'kildong'");
-if(info.next()) {
-    String userId = info.s("user_id");
-    // ...
-}
+${daoClassName} ${daoVarName} = new ${daoClassName}();
+${daoVarName}.item("field_name", value);
+${daoVarName}.insert();  // 또는 update()
 %>
 \`\`\`
 
-맑은프레임워크에서는 Dao 클래스의 find() 메서드를 사용하여 데이터를 조회합니다.`);
-      }
+맑은프레임워크에서는 Dao의 item() 메서드를 사용하여 필드 값을 설정하는 것을 권장합니다.`);
+              }
+            }
+            // find()가 없고 조회가 필요한 경우에만 제안 (하지만 필수는 아님)
+            // 실제 예시 코드에서는 insert만 사용하는 경우도 많으므로 제안하지 않음
+          }
+        }
+      });
     }
     
-    // 3. DataSet 사용 체크
-    if (code.includes('DataSet')) {
+    // 3. DataSet 사용 체크 - 맥락을 고려한 분석
+    const dataSetDeclarations = code.match(/DataSet\s+\w+/g) || [];
+    if (dataSetDeclarations.length > 0) {
       strengths.push(`✅ DataSet 사용: 맑은프레임워크의 DataSet을 사용하고 있습니다.`);
       
-      // next() 메서드 체크
-      if (code.includes('DataSet') && !code.includes('.next()')) {
-        issues.push(`⚠️ 맑은프레임워크 가이드: DataSet의 next() 메서드를 사용하지 않았습니다.`);
-        suggestions.push(`💡 **DataSet next() 메서드 사용:**
-
-\`\`\`jsp
-<%
-DataSet info = user.find("user_id = 'kildong'");
-if(info.next()) {
-    String userId = info.s("user_id");
-    String userName = info.s("user_name");
-}
-%>
-\`\`\`
-
-DataSet에서 데이터를 읽기 전에 반드시 next() 메서드를 호출해야 합니다.`);
-      }
+      // DataSet 변수명 추출
+      const dataSetVars = dataSetDeclarations.map(decl => {
+        const match = decl.match(/DataSet\s+(\w+)/);
+        return match ? match[1] : null;
+      }).filter(Boolean);
       
-      // s() 메서드 체크
-      if (code.includes('.next()') && !code.includes('.s(')) {
-        issues.push(`⚠️ 맑은프레임워크 가이드: DataSet의 s() 메서드를 사용하지 않았습니다.`);
-        suggestions.push(`💡 **DataSet s() 메서드 사용:**
+      // 각 DataSet 변수가 실제로 사용되는지 확인
+      dataSetVars.forEach(varName => {
+        const varUsage = new RegExp(`\\b${varName}\\.[\\w]+\\(`, 'g');
+        const methodCalls = code.match(varUsage) || [];
+        
+        // next() 메서드 체크 - 실제로 사용하는 경우에만 체크
+        if (methodCalls.length > 0 && !methodCalls.some(call => call.includes('.next()'))) {
+          suggestions.push(`💡 **DataSet next() 메서드 사용 (권장):**
 
 \`\`\`jsp
 <%
-if(info.next()) {
-    String userId = info.s("user_id");  // s() 메서드로 문자열 가져오기
-    int age = info.i("age");            // i() 메서드로 정수 가져오기
+DataSet ${varName} = user.find("user_id = 'kildong'");
+if(${varName}.next()) {
+    String userId = ${varName}.s("user_id");
+    String userName = ${varName}.s("user_name");
 }
 %>
 \`\`\`
 
-DataSet에서 데이터를 가져올 때는 s() (문자열), i() (정수), l() (long) 등의 메서드를 사용합니다.`);
-      }
+DataSet에서 데이터를 읽기 전에 next() 메서드를 호출하는 것을 권장합니다.`);
+        }
+        
+        // s(), i(), l() 메서드 체크 - next()를 사용하는 경우에만 체크
+        if (methodCalls.some(call => call.includes('.next()'))) {
+          const hasDataAccess = methodCalls.some(call => 
+            call.includes('.s(') || call.includes('.i(') || call.includes('.l(') ||
+            call.includes('.get(') || call.includes('.getString(') || call.includes('.getInt(')
+          );
+          
+          if (!hasDataAccess) {
+            suggestions.push(`💡 **DataSet 데이터 접근 메서드 사용 (권장):**
+
+\`\`\`jsp
+<%
+if(${varName}.next()) {
+    String userId = ${varName}.s("user_id");  // s() 메서드로 문자열 가져오기
+    int age = ${varName}.i("age");            // i() 메서드로 정수 가져오기
+}
+%>
+\`\`\`
+
+DataSet에서 데이터를 가져올 때는 s() (문자열), i() (정수), l() (long) 등의 메서드를 사용하는 것을 권장합니다.`);
+          }
+        }
+      });
     }
     
     // 4. Auth 클래스 사용 체크 (로그인 관련)
@@ -1854,22 +1920,67 @@ auth.put()로 인증정보를 등록한 후 반드시 setAuthInfo()를 호출해
       strengths.push(`✅ Config 클래스 사용: 맑은프레임워크의 Config 클래스를 사용하여 환경설정을 읽고 있습니다.`);
     }
     
-    // 6. 템플릿 변수 사용 체크
+    // 6. Form 클래스 사용 체크 (맑은프레임워크 핵심 클래스)
+    if (code.includes('f.addElement') || code.includes('f.get') || code.includes('f.validate')) {
+      strengths.push(`✅ Form 클래스 사용: 맑은프레임워크의 Form 클래스를 사용하여 폼 처리를 하고 있습니다.`);
+      
+      // addElement와 validate 사용 체크
+      if (code.includes('f.addElement') && !code.includes('f.validate')) {
+        suggestions.push(`💡 **Form validate() 메서드 사용 (권장):**
+
+\`\`\`jsp
+<%
+f.addElement("field_name", null, "hname:'필드명', required:'Y'");
+if(m.isPost() && f.validate()) {
+    // 폼 검증 통과 후 처리
+}
+%>
+\`\`\`
+
+맑은프레임워크에서는 Form의 validate() 메서드를 사용하여 입력값 검증을 수행하는 것을 권장합니다.`);
+      }
+    }
+    
+    // 7. Malgn 클래스 사용 체크 (맑은프레임워크 핵심 유틸리티)
+    if (code.includes('Malgn.') || code.includes('m.js') || code.includes('m.isPost') || code.includes('m.qs')) {
+      strengths.push(`✅ Malgn 클래스 사용: 맑은프레임워크의 Malgn 유틸리티를 사용하고 있습니다.`);
+    }
+    
+    // 8. Template 클래스 사용 체크 (맑은프레임워크 핵심 클래스)
+    if (code.includes('p.setBody') || code.includes('p.setVar') || code.includes('p.setLoop') || code.includes('p.display')) {
+      strengths.push(`✅ Template 클래스 사용: 맑은프레임워크의 Template 클래스를 사용하여 화면을 구성하고 있습니다.`);
+      
+      // display() 호출 체크
+      if ((code.includes('p.setBody') || code.includes('p.setVar')) && !code.includes('p.display()')) {
+        suggestions.push(`💡 **Template display() 메서드 호출 (필수):**
+
+\`\`\`jsp
+<%
+p.setBody("template_name");
+p.setVar("var_name", value);
+p.display();  // 반드시 호출해야 화면이 출력됨
+%>
+\`\`\`
+
+맑은프레임워크에서는 Template의 display() 메서드를 호출해야 화면이 출력됩니다.`);
+      }
+    }
+    
+    // 9. 템플릿 변수 사용 체크
     const templateVars = code.match(/\$\{[^}]+\}/g) || [];
     if (templateVars.length > 0) {
       strengths.push(`✅ 템플릿 변수 사용: ${templateVars.length}개의 템플릿 변수를 사용하고 있습니다.`);
     }
     
-    // 7. 포스트백 방식 체크
-    if (code.includes('request.getParameter') && !code.includes('postback')) {
-      issues.push(`⚠️ 맑은프레임워크 가이드: 포스트백 방식을 사용하지 않았습니다.`);
-      suggestions.push(`💡 **포스트백 방식 사용:**
+    // 10. 포스트백 방식 체크 - m.isPost() 사용 시 권장
+    if (code.includes('request.getParameter') && !code.includes('m.isPost') && !code.includes('postback')) {
+      suggestions.push(`💡 **포스트백 방식 사용 (권장):**
 
 \`\`\`jsp
 <%
-if(postback) {
+if(m.isPost()) {
     // 폼 제출 후 처리
-    String userId = request.getParameter("user_id");
+    String userId = f.get("user_id");
     // 유효성 체크 및 처리
 } else {
     // 초기 페이지 로드
@@ -1877,7 +1988,7 @@ if(postback) {
 %>
 \`\`\`
 
-맑은프레임워크에서는 포스트백 방식을 사용하여 같은 페이지에서 폼 제출을 처리합니다.`);
+맑은프레임워크에서는 m.isPost()를 사용하여 포스트백을 처리하는 것을 권장합니다.`);
     }
     
     return { issues, suggestions, strengths };
@@ -2080,6 +2191,18 @@ if(!"ADMIN".equals(userRole)) {
       exp += `• DataSet을 ${structure.dataSetCount}번 사용하고 있습니다.\n`;
     }
     
+    if (structure.hasForm) {
+      exp += `• Form 클래스를 사용하여 폼 처리를 하고 있습니다.\n`;
+    }
+    
+    if (structure.hasMalgn) {
+      exp += `• Malgn 유틸리티를 사용하고 있습니다.\n`;
+    }
+    
+    if (structure.hasTemplate) {
+      exp += `• Template 클래스를 사용하여 화면을 구성하고 있습니다.\n`;
+    }
+    
     if (structure.hasAuth) {
       exp += `• Auth 클래스를 사용하여 인증을 처리하고 있습니다.\n`;
     }
@@ -2103,12 +2226,15 @@ if(!"ADMIN".equals(userRole)) {
     const practices = [];
     
     practices.push(`✅ init.jsp include: 맑은프레임워크를 사용하려면 반드시 init.jsp를 include해야 합니다.`);
-    practices.push(`✅ Dao 클래스 사용: 데이터베이스 접근은 Dao 클래스를 통해 수행하세요.`);
-    practices.push(`✅ DataSet 사용: 조회 결과는 DataSet을 사용하여 처리하세요.`);
+    practices.push(`✅ Dao 클래스 사용: 데이터베이스 접근은 Dao 클래스를 통해 수행하세요. (find, insert, update, delete 등)`);
+    practices.push(`✅ Form 클래스 사용: 폼 처리는 Form 클래스(f.addElement, f.get, f.validate)를 사용하세요.`);
+    practices.push(`✅ Malgn 유틸리티: m.isPost(), m.jsAlert(), m.jsError(), Malgn.time() 등을 활용하세요.`);
+    practices.push(`✅ Template 클래스: 화면 출력은 Template 클래스(p.setBody, p.setVar, p.setLoop, p.display)를 사용하세요.`);
+    practices.push(`✅ DataSet 사용: 조회 결과는 DataSet을 사용하여 처리하세요. (find() 사용 시)`);
     practices.push(`✅ 템플릿 변수: 출력은 템플릿 변수(\${변수})를 사용하여 XSS를 방지하세요.`);
-    practices.push(`✅ 포스트백 방식: 같은 페이지에서 폼 제출을 처리할 때는 포스트백 방식을 사용하세요.`);
-    practices.push(`✅ 입력값 검증: 모든 사용자 입력값에 대해 검증을 수행하세요.`);
-    practices.push(`✅ 인증 체크: 중요 작업 전에 Auth 클래스를 사용하여 인증을 체크하세요.`);
+    practices.push(`✅ 포스트백 방식: 같은 페이지에서 폼 제출을 처리할 때는 m.isPost()를 사용하세요.`);
+    practices.push(`✅ 입력값 검증: Form의 addElement와 validate()를 사용하여 입력값 검증을 수행하세요.`);
+    practices.push(`✅ 인증 체크: 중요 작업 전에 Menu.accessible() 또는 Auth 클래스를 사용하여 인증을 체크하세요.`);
     
     return practices.join('\n\n');
   }
