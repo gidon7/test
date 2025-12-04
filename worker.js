@@ -1,5 +1,5 @@
 // Cloudflare Workers용 Java 코드 리뷰 시스템
-// Java 1.8 개선 제안 + CWEAP 시큐어 코딩 가이드 49개 항목
+// Java 1.8 개선 제안 + CWE 시큐어 코딩 가이드 49개 항목
 
 // 코드 분석기 (규칙 기반, API 키 불필요)
 export class JavaCodeAnalyzer {
@@ -39,7 +39,7 @@ export class JavaCodeAnalyzer {
     issues.push(...performance.issues);
     suggestions.push(...performance.suggestions);
     
-    // 4. 시큐어 코딩 가이드 체크 (CWEAP 49개 항목)
+    // 4. 시큐어 코딩 가이드 체크 (CWE 49개 항목)
     const security = this.checkSecureCoding(code);
     secureCodingIssues.push(...security.issues);
     suggestions.push(...security.suggestions);
@@ -177,7 +177,7 @@ export class JavaCodeAnalyzer {
     }
     
     if (secureSuggestions && secureSuggestions.length > 0) {
-      formatted += '## 🔒 시큐어 코딩 개선 제안 (CWEAP 가이드)\n\n';
+      formatted += '## 🔒 시큐어 코딩 개선 제안 (CWE 가이드)\n\n';
       secureSuggestions.forEach((s, idx) => {
         const idxNum = idx + 1;
         const name = s.name || '';
@@ -845,7 +845,7 @@ list.stream().forEach(item -> {
     const codeFixes = []; // 구체적인 코드 수정 제안
     let totalChecked = 0;
     
-    // CWEAP 시큐어 코딩 가이드 49개 항목 체크
+    // CWE 시큐어 코딩 가이드 49개 항목 체크
     const guidelines = this.getSecureCodingGuidelines();
     
     Object.values(guidelines).forEach(category => {
@@ -1952,7 +1952,7 @@ CompletableFuture<String> future = CompletableFuture.supplyAsync(() -> {
     }
     
     if (secureCodingIssues && secureCodingIssues.length > 0) {
-      review += `## 🔒 시큐어 코딩 이슈 (CWEAP 가이드)\n`;
+      review += `## 🔒 시큐어 코딩 이슈 (CWE 가이드)\n`;
       review += `총 ${secureCodingIssues.length}개의 보안 이슈가 발견되었습니다.\n\n`;
       secureCodingIssues.forEach((issue, idx) => {
         review += `${idx + 1}. **[${issue.severity}] ${issue.name}**\n`;

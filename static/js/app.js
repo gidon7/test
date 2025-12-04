@@ -238,7 +238,7 @@ function displayResults(data) {
         ` : ''}
         ${secureCoding ? `
             <div class="review-section" style="border-left-color: #f44336;">
-                <h3>🔒 시큐어 코딩 체크 (CWEAP 가이드)</h3>
+                <h3>🔒 시큐어 코딩 체크 (CWE 가이드)</h3>
                 <div style="margin-bottom: 15px;">
                     <strong>체크 항목:</strong> ${secureCoding.total_checked}개<br>
                     <strong>발견된 이슈:</strong> ${secureCoding.found_issues}개<br>
