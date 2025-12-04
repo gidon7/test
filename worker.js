@@ -298,24 +298,6 @@ public class OrderItemDao extends DataObject {
         message: `DataSet을 ${dataSetDeclarations.length}번 사용하고 있습니다.`,
         score: 5
       });
-      
-      // next() 패턴 체크
-      dataSetDeclarations.forEach(decl => {
-        const match = decl.match(/DataSet\s+(\w+)/);
-        if (match) {
-          const varName = match[1];
-          const nextPattern = new RegExp(`(while|if)\\s*\\([^)]*\\b${varName}\\.next\\(\\)`, 'g');
-          const hasNext = nextPattern.test(code) || new RegExp(`\\b${varName}\\.next\\(\\)`, 'g').test(code);
-          
-          if (hasNext) {
-            strengths.push({
-              type: 'framework',
-              message: `${varName} DataSet에서 next() 메서드를 올바르게 사용하고 있습니다.`,
-              score: 3
-            });
-          }
-        }
-      });
     }
     
     // 5. find(), query() 메서드 사용 체크
@@ -1928,7 +1910,7 @@ CompletableFuture<String> future = CompletableFuture.supplyAsync(() -> {
       practices.push(`✅ DataObject 상속: Dao 클래스는 DataObject를 상속받아야 합니다.`);
       practices.push(`✅ table 필드 설정: 생성자에서 this.table = "테이블명"을 설정하세요.`);
       practices.push(`✅ malgnsoft 패키지: malgnsoft.db.*와 malgnsoft.util.*를 import하세요.`);
-      practices.push(`✅ DataSet 사용: 조회 결과는 DataSet을 사용하고, while(list.next()) 패턴을 사용하세요.`);
+      practices.push(`✅ DataSet 사용: 조회 결과는 DataSet을 사용하세요.`);
       practices.push(`✅ find()/query() 메서드: 데이터 조회는 find() 또는 query() 메서드를 사용하세요.`);
       practices.push(`✅ item() 메서드: insert()/update() 전에 item() 메서드로 필드 값을 설정하세요.`);
       practices.push(`✅ Malgn 유틸리티: Malgn.time(), Malgn.nf() 등의 유틸리티를 활용하세요.`);
@@ -2272,60 +2254,14 @@ ${daoVarName}.insert();  // 또는 update()
       });
     }
     
-    // 3. DataSet 사용 체크 - 실제 패턴 반영 (while/if + next() 패턴)
+    // 3. DataSet 사용 체크
     const dataSetDeclarations = code.match(/DataSet\s+\w+/g) || [];
     if (dataSetDeclarations.length > 0) {
-      strengths.push(`✅ DataSet 사용: 맑은프레임워크의 DataSet을 사용하고 있습니다.`);
-      
-      // DataSet 변수명 추출
-      const dataSetVars = dataSetDeclarations.map(decl => {
-        const match = decl.match(/DataSet\s+(\w+)/);
-        return match ? match[1] : null;
-      }).filter(Boolean);
-      
-      // 각 DataSet 변수가 실제로 사용되는지 확인
-      dataSetVars.forEach(varName => {
-        // next() 사용 패턴 확인 (while, if 등과 함께 사용)
-        const nextPattern = new RegExp(`(while|if)\\s*\\([^)]*\\b${varName}\\.next\\(\\)`, 'g');
-        const hasNextPattern = nextPattern.test(code);
-        
-        // 단순 next() 호출 확인
-        const simpleNext = new RegExp(`\\b${varName}\\.next\\(\\)`, 'g');
-        const hasNext = simpleNext.test(code);
-        
-        // 변수 사용 확인
-        const varUsage = new RegExp(`\\b${varName}\\.[\\w]+\\(`, 'g');
-        const methodCalls = code.match(varUsage) || [];
-        
-        // next()를 사용하는 경우 - 정상 패턴으로 인식
-        if (hasNext || hasNextPattern) {
-          // next()를 사용하고 있으므로 정상
-          const hasDataAccess = methodCalls.some(call => 
-            call.includes('.s(') || call.includes('.i(') || call.includes('.l(') ||
-            call.includes('.put(') || call.includes('.b(') || call.includes('.d(')
-          );
-          
-          // next()는 사용하지만 데이터 접근이 없는 경우만 제안 (하지만 필수는 아님)
-          if (methodCalls.length > 1 && !hasDataAccess) {
-            // next() 외에 다른 메서드가 있지만 s(), i(), put() 등이 없는 경우
-            // 이건 선택적 제안
-          }
-        } else if (methodCalls.length > 0) {
-          // DataSet을 선언하고 사용하지만 next()를 사용하지 않는 경우만 제안
-          suggestions.push(`💡 **DataSet next() 메서드 사용 (권장):**
-
-\`\`\`jsp
-<%
-DataSet ${varName} = user.find("user_id = 'kildong'");
-while(${varName}.next()) {
-    String userId = ${varName}.s("user_id");
-    // 처리
-}
-%>
-\`\`\`
-
-DataSet에서 데이터를 읽기 전에 next() 메서드를 호출하는 것을 권장합니다.`);
-        }
+      strengths.push({
+        type: 'framework',
+        message: `DataSet을 ${dataSetDeclarations.length}번 사용하고 있습니다.`,
+        score: 5,
+        explanation: '맑은프레임워크의 DataSet은 데이터 조회 결과를 담는 컨테이너입니다.'
       });
     }
     
