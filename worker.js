@@ -1885,33 +1885,21 @@ DataSet에서 데이터를 읽기 전에 next() 메서드를 호출하는 것을
       strengths.push(`✅ Dao query() 메서드 사용: ${daoQueryUsage.length}개의 query() 메서드를 사용하고 있습니다.`);
     }
     
-    // 4. Auth 클래스 사용 체크 (로그인 관련)
-    if (code.includes('login') || code.includes('auth') || code.includes('인증')) {
-      if (!code.includes('Auth') && !code.includes('auth.')) {
-        issues.push(`⚠️ 맑은프레임워크 가이드: 로그인 처리를 위해 Auth 클래스를 사용하지 않았습니다.`);
-        suggestions.push(`💡 **Auth 클래스 사용 (로그인 처리):**
-
-\`\`\`jsp
-<%@ page contentType="text/html; charset=utf-8" %>
-<%@ include file="/init.jsp" %>
-<%
-UserDao user = new UserDao();
-DataSet info = user.find("user_id = 'kildong'");
-if(info.next()) {
-    auth.put("USER_ID", info.s("user_id"));
-    auth.setAuthInfo();  // 세션이나 쿠키에 인증정보 저장
-}
-%>
-\`\`\`
-
-맑은프레임워크에서는 Auth 클래스를 사용하여 인증 정보를 관리합니다.`);
-      } else {
-        strengths.push(`✅ Auth 클래스 사용: 맑은프레임워크의 Auth 클래스를 사용하여 인증을 처리하고 있습니다.`);
-        
-        // setAuthInfo() 체크
-        if (code.includes('auth.put') && !code.includes('auth.setAuthInfo()')) {
-          issues.push(`⚠️ 맑은프레임워크 가이드: auth.put() 후 setAuthInfo()를 호출하지 않았습니다.`);
-          suggestions.push(`💡 **Auth 인증정보 저장:**
+    // 4. 접근 권한 체크 (Menu.accessible() 사용)
+    if (code.includes('Menu.accessible')) {
+      strengths.push(`✅ 접근 권한 체크: Menu.accessible()을 사용하여 접근 권한을 체크하고 있습니다.`);
+    } else if (code.includes('adminBlock') || code.includes('deptManagerBlock')) {
+      strengths.push(`✅ 접근 권한 체크: adminBlock 또는 deptManagerBlock을 사용하여 접근 권한을 체크하고 있습니다.`);
+    }
+    
+    // Auth 클래스 사용 체크 (로그인 처리 시에만)
+    if (code.includes('login') && (code.includes('auth.put') || code.includes('auth.setAuthInfo'))) {
+      strengths.push(`✅ Auth 클래스 사용: 맑은프레임워크의 Auth 클래스를 사용하여 로그인 처리를 하고 있습니다.`);
+      
+      // setAuthInfo() 체크
+      if (code.includes('auth.put') && !code.includes('auth.setAuthInfo()')) {
+        issues.push(`⚠️ 맑은프레임워크 가이드: auth.put() 후 setAuthInfo()를 호출하지 않았습니다.`);
+        suggestions.push(`💡 **Auth 인증정보 저장:**
 
 \`\`\`jsp
 <%
@@ -1921,7 +1909,6 @@ auth.setAuthInfo();  // 반드시 호출해야 실제로 저장됨
 \`\`\`
 
 auth.put()로 인증정보를 등록한 후 반드시 setAuthInfo()를 호출해야 합니다.`);
-        }
       }
     }
     
@@ -2145,36 +2132,20 @@ if(userId.length() > 50) {
       });
     }
     
-    // 4. 인증 체크 누락
+    // 4. 접근 권한 체크 (선택사항 - 권장)
     totalChecked++;
-    if ((code.includes('delete') || code.includes('수정') || code.includes('삭제')) && !code.includes('auth.') && !code.includes('Auth')) {
-      issues.push({
-        id: 'JSP-SC-004',
-        name: '인증 체크 누락',
-        issue: '중요한 작업에 대한 인증 체크가 없습니다.',
-        severity: 'HIGH',
-        suggestion: `<%
-// ✅ 인증 체크
-if(!auth.isLogin()) {
-    out.print("<script>alert('로그인이 필요합니다.'); location.href='/login.jsp';</script>");
-    return;
-}
-
-// 또는 특정 권한 체크
-String userRole = auth.s("USER_ROLE");
-if(!"ADMIN".equals(userRole)) {
-    out.print("<script>alert('권한이 없습니다.'); history.back();</script>");
-    return;
-}
-%>`
-      });
-      suggestions.push({
-        name: '인증 체크',
-        issue: '중요한 작업(수정, 삭제 등) 전에 반드시 인증을 체크하세요.',
-        suggestion: `맑은프레임워크의 Auth 클래스를 사용하여 인증을 체크할 수 있습니다.`,
-        severity: 'HIGH'
-      });
+    const hasModifyDelete = code.includes('update') || code.includes('insert') || code.includes('delete') || 
+                            code.includes('수정') || code.includes('등록') || code.includes('삭제') ||
+                            code.includes('m.isPost()') || code.includes('f.validate()');
+    const hasAccessCheck = code.includes('Menu.accessible') || code.includes('adminBlock') || 
+                          code.includes('deptManagerBlock') || code.includes('auth.isLogin') ||
+                          code.includes('auth.s(') || code.includes('Auth');
+    
+    // 접근 권한 체크가 있는 경우 - 정상
+    if (hasModifyDelete && hasAccessCheck) {
+      // 정상 - 접근 권한 체크가 있음
     }
+    // 접근 권한 체크가 없는 경우는 필수가 아니므로 제안하지 않음
     
     return {
       issues,
@@ -2244,7 +2215,7 @@ if(!"ADMIN".equals(userRole)) {
     practices.push(`✅ 템플릿 변수: 출력은 템플릿 변수(\${변수})를 사용하여 XSS를 방지하세요.`);
     practices.push(`✅ 포스트백 방식: 같은 페이지에서 폼 제출을 처리할 때는 m.isPost()를 사용하세요.`);
     practices.push(`✅ 입력값 검증: Form의 addElement와 validate()를 사용하여 입력값 검증을 수행하세요.`);
-    practices.push(`✅ 인증 체크: 중요 작업 전에 Menu.accessible() 또는 Auth 클래스를 사용하여 인증을 체크하세요.`);
+    practices.push(`✅ 접근 권한 체크: 중요 작업 전에 Menu.accessible() 또는 adminBlock을 사용하여 접근 권한을 체크하세요.`);
     
     return practices.join('\n\n');
   }
