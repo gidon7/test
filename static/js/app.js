@@ -164,27 +164,27 @@ function displayResults(data) {
     aiReview.innerHTML = `
         <h2>🤖 코드 리뷰</h2>
         ${review.explanation ? `
-            <div class="review-section">
+            <div class="review-section" style="border-left-color: #2196F3;">
                 <h3>📝 코드 설명</h3>
                 <p>${review.explanation}</p>
             </div>
         ` : ''}
         ${review.strengths ? `
-            <div class="review-section">
+            <div class="review-section" style="border-left-color: #4CAF50; background: linear-gradient(135deg, #f1f8f4 0%, #ffffff 100%);">
                 <h3>✅ 장점</h3>
                 <p>${review.strengths}</p>
             </div>
         ` : ''}
         ${review.improvements ? `
-            <div class="review-section">
+            <div class="review-section" style="border-left-color: #FF9800; background: linear-gradient(135deg, #fff8f0 0%, #ffffff 100%);">
                 <h3>🔧 개선점</h3>
                 <p>${review.improvements}</p>
             </div>
         ` : ''}
         ${review.suggestions ? `
-            <div class="review-section">
+            <div class="review-section" style="border-left-color: #ff9800;">
                 <h3>💡 상세 개선 제안</h3>
-                <div style="white-space: pre-wrap; font-family: 'Courier New', monospace; background: #f5f5f5; padding: 15px; border-radius: 5px; overflow-x: auto;">${escapeHtml(review.suggestions)}</div>
+                <div class="suggestions-content">${formatSuggestions(review.suggestions)}</div>
             </div>
         ` : ''}
         ${secureCoding ? `
@@ -241,15 +241,15 @@ function displayResults(data) {
             return codeFixesHtml;
         })() : ''}
         ${review.best_practices ? `
-            <div class="review-section">
+            <div class="review-section" style="border-left-color: #9C27B0; background: linear-gradient(135deg, #faf5ff 0%, #ffffff 100%);">
                 <h3>⭐ Best Practice</h3>
                 <p>${review.best_practices}</p>
             </div>
         ` : ''}
         ${review.full_review ? `
-            <div class="review-section">
+            <div class="review-section" style="border-left-color: #607D8B;">
                 <h3>📄 전체 리뷰</h3>
-                <div style="white-space: pre-wrap; font-family: 'Courier New', monospace; background: #f5f5f5; padding: 15px; border-radius: 5px; overflow-x: auto; max-height: 500px; overflow-y: auto;">${escapeHtml(review.full_review)}</div>
+                <div class="full-review-content">${formatFullReview(review.full_review)}</div>
             </div>
         ` : ''}
     `;
@@ -270,4 +270,64 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// 제안 내용 포맷팅
+function formatSuggestions(text) {
+    if (!text) return '';
+    
+    // 마크다운 스타일 코드 블록 처리
+    let formatted = escapeHtml(text);
+    
+    // 코드 블록 처리 (```jsp ... ```)
+    formatted = formatted.replace(/```jsp\n([\s\S]*?)```/g, (match, code) => {
+        return `<pre class="code-block"><code>${escapeHtml(code.trim())}</code></pre>`;
+    });
+    
+    // 코드 블록 처리 (``` ... ```)
+    formatted = formatted.replace(/```\n([\s\S]*?)```/g, (match, code) => {
+        return `<pre class="code-block"><code>${escapeHtml(code.trim())}</code></pre>`;
+    });
+    
+    // 인라인 코드 처리 (`...`)
+    formatted = formatted.replace(/`([^`]+)`/g, '<code>$1</code>');
+    
+    // 강조 처리 (**...**)
+    formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    
+    // 제목 처리 (## ...)
+    formatted = formatted.replace(/##\s+(.+)/g, '<h4 style="margin-top: 20px; margin-bottom: 10px; color: #667eea; font-size: 1.1em;">$1</h4>');
+    
+    // 줄바꿈 처리
+    formatted = formatted.replace(/\n\n/g, '</p><p>');
+    formatted = formatted.replace(/\n/g, '<br>');
+    
+    return `<p>${formatted}</p>`;
+}
+
+// 전체 리뷰 포맷팅
+function formatFullReview(text) {
+    if (!text) return '';
+    
+    let formatted = escapeHtml(text);
+    
+    // 마크다운 헤더 처리
+    formatted = formatted.replace(/^#\s+(.+)$/gm, '<h2 style="color: #667eea; margin-top: 24px; margin-bottom: 16px; font-size: 1.4em;">$1</h2>');
+    formatted = formatted.replace(/^##\s+(.+)$/gm, '<h3 style="color: #667eea; margin-top: 20px; margin-bottom: 12px; font-size: 1.2em;">$1</h3>');
+    formatted = formatted.replace(/^###\s+(.+)$/gm, '<h4 style="color: #667eea; margin-top: 16px; margin-bottom: 8px; font-size: 1.1em;">$1</h4>');
+    
+    // 코드 블록 처리
+    formatted = formatted.replace(/```jsp\n([\s\S]*?)```/g, (match, code) => {
+        return `<pre class="code-block"><code>${escapeHtml(code.trim())}</code></pre>`;
+    });
+    
+    // 리스트 처리
+    formatted = formatted.replace(/^[\*\-\+]\s+(.+)$/gm, '<li>$1</li>');
+    formatted = formatted.replace(/(<li>.*<\/li>)/s, '<ul style="margin: 12px 0; padding-left: 24px;">$1</ul>');
+    
+    // 줄바꿈 처리
+    formatted = formatted.replace(/\n\n/g, '</p><p>');
+    formatted = formatted.replace(/\n/g, '<br>');
+    
+    return `<div class="full-review-text">${formatted}</div>`;
 }

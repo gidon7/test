@@ -1817,7 +1817,7 @@ ${daoVarName}.insert();  // 또는 update()
       });
     }
     
-    // 3. DataSet 사용 체크 - 맥락을 고려한 분석
+    // 3. DataSet 사용 체크 - 실제 패턴 반영 (while/if + next() 패턴)
     const dataSetDeclarations = code.match(/DataSet\s+\w+/g) || [];
     if (dataSetDeclarations.length > 0) {
       strengths.push(`✅ DataSet 사용: 맑은프레임워크의 DataSet을 사용하고 있습니다.`);
@@ -1830,49 +1830,59 @@ ${daoVarName}.insert();  // 또는 update()
       
       // 각 DataSet 변수가 실제로 사용되는지 확인
       dataSetVars.forEach(varName => {
+        // next() 사용 패턴 확인 (while, if 등과 함께 사용)
+        const nextPattern = new RegExp(`(while|if)\\s*\\([^)]*\\b${varName}\\.next\\(\\)`, 'g');
+        const hasNextPattern = nextPattern.test(code);
+        
+        // 단순 next() 호출 확인
+        const simpleNext = new RegExp(`\\b${varName}\\.next\\(\\)`, 'g');
+        const hasNext = simpleNext.test(code);
+        
+        // 변수 사용 확인
         const varUsage = new RegExp(`\\b${varName}\\.[\\w]+\\(`, 'g');
         const methodCalls = code.match(varUsage) || [];
         
-        // next() 메서드 체크 - 실제로 사용하는 경우에만 체크
-        if (methodCalls.length > 0 && !methodCalls.some(call => call.includes('.next()'))) {
+        // next()를 사용하는 경우 - 정상 패턴으로 인식
+        if (hasNext || hasNextPattern) {
+          // next()를 사용하고 있으므로 정상
+          const hasDataAccess = methodCalls.some(call => 
+            call.includes('.s(') || call.includes('.i(') || call.includes('.l(') ||
+            call.includes('.put(') || call.includes('.b(') || call.includes('.d(')
+          );
+          
+          // next()는 사용하지만 데이터 접근이 없는 경우만 제안 (하지만 필수는 아님)
+          if (methodCalls.length > 1 && !hasDataAccess) {
+            // next() 외에 다른 메서드가 있지만 s(), i(), put() 등이 없는 경우
+            // 이건 선택적 제안
+          }
+        } else if (methodCalls.length > 0) {
+          // DataSet을 선언하고 사용하지만 next()를 사용하지 않는 경우만 제안
           suggestions.push(`💡 **DataSet next() 메서드 사용 (권장):**
 
 \`\`\`jsp
 <%
 DataSet ${varName} = user.find("user_id = 'kildong'");
-if(${varName}.next()) {
+while(${varName}.next()) {
     String userId = ${varName}.s("user_id");
-    String userName = ${varName}.s("user_name");
+    // 처리
 }
 %>
 \`\`\`
 
 DataSet에서 데이터를 읽기 전에 next() 메서드를 호출하는 것을 권장합니다.`);
         }
-        
-        // s(), i(), l() 메서드 체크 - next()를 사용하는 경우에만 체크
-        if (methodCalls.some(call => call.includes('.next()'))) {
-          const hasDataAccess = methodCalls.some(call => 
-            call.includes('.s(') || call.includes('.i(') || call.includes('.l(') ||
-            call.includes('.get(') || call.includes('.getString(') || call.includes('.getInt(')
-          );
-          
-          if (!hasDataAccess) {
-            suggestions.push(`💡 **DataSet 데이터 접근 메서드 사용 (권장):**
-
-\`\`\`jsp
-<%
-if(${varName}.next()) {
-    String userId = ${varName}.s("user_id");  // s() 메서드로 문자열 가져오기
-    int age = ${varName}.i("age");            // i() 메서드로 정수 가져오기
-}
-%>
-\`\`\`
-
-DataSet에서 데이터를 가져올 때는 s() (문자열), i() (정수), l() (long) 등의 메서드를 사용하는 것을 권장합니다.`);
-          }
-        }
       });
+    }
+    
+    // ListManager 사용 체크
+    if (code.includes('ListManager') || code.includes('lm.getDataSet()')) {
+      strengths.push(`✅ ListManager 사용: 맑은프레임워크의 ListManager를 사용하여 목록 처리를 하고 있습니다.`);
+    }
+    
+    // Dao query() 메서드 사용 체크
+    const daoQueryUsage = code.match(/\w+\.query\s*\(/g) || [];
+    if (daoQueryUsage.length > 0) {
+      strengths.push(`✅ Dao query() 메서드 사용: ${daoQueryUsage.length}개의 query() 메서드를 사용하고 있습니다.`);
     }
     
     // 4. Auth 클래스 사용 체크 (로그인 관련)
