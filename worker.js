@@ -358,12 +358,57 @@ this.insert();`,
       });
     }
     
-    // 7. Malgn 유틸리티 사용 체크
-    if (code.includes('Malgn.') || code.includes('Malgn.time') || code.includes('Malgn.nf')) {
+    // 7. Malgn 유틸리티 사용 체크 - 실제 util 파일 기반
+    const malgnStaticMethods = [
+      'Malgn.time', 'Malgn.nf', 'Malgn.replace', 'Malgn.split', 'Malgn.join',
+      'Malgn.getItem', 'Malgn.cutString', 'Malgn.encode', 'Malgn.encrypt',
+      'Malgn.delFileRoot', 'Malgn.errorLog', 'Malgn.arr2loop', 'Malgn.getUploadUrl',
+      'Malgn.getUploadPath', 'Malgn.sha256', 'Malgn.md5', 'Malgn.htt', 'Malgn.nl2br',
+      'Malgn.getTimeString', 'Malgn.diffDate', 'Malgn.addDate', 'Malgn.strToDate',
+      'Malgn.getFileExt', 'Malgn.getFileMD5', 'Malgn.readFile', 'Malgn.writeFile',
+      'Malgn.copyFile', 'Malgn.delFile', 'Malgn.getUniqId', 'Malgn.repeatString',
+      'Malgn.inArray', 'Malgn.getMimeType', 'Malgn.exec', 'Malgn.chmod',
+      'Malgn.urlencode', 'Malgn.urldecode', 'Malgn.strToMap', 'Malgn.mapToString',
+      'Malgn.serialize', 'Malgn.unserialize', 'Malgn.htmlToText', 'Malgn.stripTags',
+      'Malgn.strpad', 'Malgn.strrpad', 'Malgn.getFileSize', 'Malgn.round',
+      'Malgn.numberFormat', 'Malgn.dirname', 'Malgn.addSlashes', 'Malgn.crc32',
+      'Malgn.bytesToHex', 'Malgn.hexToBytes', 'Malgn.parseInt', 'Malgn.parseLong',
+      'Malgn.parseDouble', 'Malgn.getPercent'
+    ];
+    
+    let malgnUsageCount = 0;
+    malgnStaticMethods.forEach(method => {
+      if (code.includes(method + '(')) malgnUsageCount++;
+    });
+    
+    if (malgnUsageCount > 0) {
       strengths.push({
         type: 'framework',
-        message: 'Malgn 유틸리티를 사용하고 있습니다.',
-        score: 5
+        message: `Malgn 유틸리티를 ${malgnUsageCount}개 이상 사용하고 있습니다.`,
+        score: Math.min(10, malgnUsageCount * 2),
+        explanation: '맑은프레임워크의 Malgn 클래스는 다양한 유틸리티 메서드를 제공합니다.'
+      });
+    }
+    
+    // 8. Config 클래스 사용 체크 - 실제 util 파일 기반
+    const configMethods = [
+      'Config.get', 'Config.getInt', 'Config.getTplRoot', 'Config.getDataDir',
+      'Config.getDataUrl', 'Config.getLogDir', 'Config.getJndi', 'Config.getRoJndi',
+      'Config.getMailFrom', 'Config.getMailHost', 'Config.getWas', 'Config.getEncoding',
+      'Config.getSecretId', 'Config.getDocRoot', 'Config.getWebUrl'
+    ];
+    
+    let configUsageCount = 0;
+    configMethods.forEach(method => {
+      if (code.includes(method + '(')) configUsageCount++;
+    });
+    
+    if (configUsageCount > 0) {
+      strengths.push({
+        type: 'framework',
+        message: `Config 클래스를 ${configUsageCount}개 이상 사용하고 있습니다.`,
+        score: Math.min(5, configUsageCount),
+        explanation: '맑은프레임워크의 Config 클래스는 환경설정을 관리합니다.'
       });
     }
     
@@ -2302,34 +2347,94 @@ DataSet에서 데이터를 읽기 전에 next() 메서드를 호출하는 것을
       strengths.push(`✅ 접근 권한 체크: adminBlock 또는 deptManagerBlock을 사용하여 접근 권한을 체크하고 있습니다.`);
     }
     
-    // Auth 클래스 사용 체크 (로그인 처리 시에만)
-    if (code.includes('login') && (code.includes('auth.put') || code.includes('auth.setAuthInfo'))) {
-      strengths.push(`✅ Auth 클래스 사용: 맑은프레임워크의 Auth 클래스를 사용하여 로그인 처리를 하고 있습니다.`);
+    // 4. Auth 클래스 사용 체크 - 실제 util 파일 기반
+    const authMethods = [
+      'auth.put', 'auth.getInt', 'auth.getString', 'auth.isValid', 'auth.setAuthInfo',
+      'auth.delAuthInfo', 'auth.loginForm', 'auth.save', 'auth.delete', 'auth.parse',
+      'auth.setLoginURL', 'auth.setKeyName', 'auth.setPath', 'auth.setDomain',
+      'auth.setSecure', 'auth.setSecureCookie', 'auth.setSameSite', 'auth.setHttpOnly',
+      'auth.setValidTime', 'auth.setMaxAge'
+    ];
+    
+    let authUsageCount = 0;
+    authMethods.forEach(method => {
+      if (code.includes(method + '(')) authUsageCount++;
+    });
+    
+    if (authUsageCount > 0) {
+      strengths.push({
+        type: 'framework',
+        message: `Auth 클래스를 ${authUsageCount}개 이상 사용하고 있습니다.`,
+        score: Math.min(10, authUsageCount * 2),
+        explanation: '맑은프레임워크의 Auth 클래스는 인증 처리를 담당합니다.'
+      });
       
       // setAuthInfo() 체크
-      if (code.includes('auth.put') && !code.includes('auth.setAuthInfo()')) {
-        issues.push(`⚠️ 맑은프레임워크 가이드: auth.put() 후 setAuthInfo()를 호출하지 않았습니다.`);
-        suggestions.push(`💡 **Auth 인증정보 저장:**
-
-\`\`\`jsp
-<%
+      if (code.includes('auth.put') && !code.includes('auth.setAuthInfo()') && !code.includes('auth.save()')) {
+        issues.push({
+          type: 'framework',
+          severity: 'MEDIUM',
+          message: 'auth.put() 후 setAuthInfo() 또는 save()를 호출하지 않았습니다.',
+          score: -5,
+          explanation: 'auth.put()로 인증정보를 등록한 후 반드시 setAuthInfo() 또는 save()를 호출해야 합니다.',
+          beforeCode: `<%
 auth.put("USER_ID", info.s("user_id"));
-auth.setAuthInfo();  // 반드시 호출해야 실제로 저장됨
-%>
-\`\`\`
-
-auth.put()로 인증정보를 등록한 후 반드시 setAuthInfo()를 호출해야 합니다.`);
+// setAuthInfo() 호출 누락
+%>`,
+          afterCode: `<%
+auth.put("USER_ID", info.s("user_id"));
+auth.setAuthInfo();  // 또는 auth.save()
+%>`,
+          why: 'setAuthInfo() 또는 save()를 호출해야 실제로 인증정보가 저장됩니다.',
+          howToFix: 'auth.put() 후 auth.setAuthInfo() 또는 auth.save()를 호출하세요.'
+        });
       }
     }
     
-    // 5. Config 클래스 사용 체크
-    if (code.includes('Config.') || code.includes('Config.get')) {
-      strengths.push(`✅ Config 클래스 사용: 맑은프레임워크의 Config 클래스를 사용하여 환경설정을 읽고 있습니다.`);
+    // 5. Config 클래스 사용 체크 - 실제 util 파일 기반
+    const configMethods = [
+      'Config.get', 'Config.getInt', 'Config.getTplRoot', 'Config.getDataDir',
+      'Config.getDataUrl', 'Config.getLogDir', 'Config.getJndi', 'Config.getRoJndi',
+      'Config.getMailFrom', 'Config.getMailHost', 'Config.getWas', 'Config.getEncoding',
+      'Config.getSecretId', 'Config.getDocRoot', 'Config.getWebUrl', 'Config.set',
+      'Config.getDatabase', 'Config.getDataSet', 'Config.load', 'Config.reload'
+    ];
+    
+    let configUsageCount = 0;
+    configMethods.forEach(method => {
+      if (code.includes(method + '(')) configUsageCount++;
+    });
+    
+    if (configUsageCount > 0) {
+      strengths.push({
+        type: 'framework',
+        message: `Config 클래스를 ${configUsageCount}개 이상 사용하고 있습니다.`,
+        score: Math.min(5, configUsageCount),
+        explanation: '맑은프레임워크의 Config 클래스는 환경설정을 관리합니다.'
+      });
     }
     
-    // 6. Form 클래스 사용 체크 (맑은프레임워크 핵심 클래스)
-    if (code.includes('f.addElement') || code.includes('f.get') || code.includes('f.validate')) {
-      strengths.push(`✅ Form 클래스 사용: 맑은프레임워크의 Form 클래스를 사용하여 폼 처리를 하고 있습니다.`);
+    // 6. Form 클래스 사용 체크 (맑은프레임워크 핵심 클래스) - 실제 util 파일 기반
+    const formMethods = [
+      'f.addElement', 'f.get', 'f.getInt', 'f.getLong', 'f.getDouble', 'f.validate',
+      'f.saveFile', 'f.getFileName', 'f.getFileType', 'f.getFile', 'f.getScript',
+      'f.getArr', 'f.getArrList', 'f.glue', 'f.put', 'f.isset', 'f.setRequest',
+      'f.setDebug', 'f.setDataDir', 'f.setUploadDir', 'f.setTempDir', 'f.denyHtml',
+      'f.denyExt', 'f.setError', 'f.getMap'
+    ];
+    
+    let formUsageCount = 0;
+    formMethods.forEach(method => {
+      if (code.includes(method + '(')) formUsageCount++;
+    });
+    
+    if (formUsageCount > 0) {
+      strengths.push({
+        type: 'framework',
+        message: `Form 클래스를 ${formUsageCount}개 이상 사용하고 있습니다.`,
+        score: Math.min(10, formUsageCount * 2),
+        explanation: '맑은프레임워크의 Form 클래스는 폼 처리와 검증을 담당합니다.'
+      });
       
       // addElement와 validate 사용 체크
       if (code.includes('f.addElement') && !code.includes('f.validate')) {
@@ -2338,48 +2443,170 @@ auth.put()로 인증정보를 등록한 후 반드시 setAuthInfo()를 호출해
 \`\`\`jsp
 <%
 f.addElement("field_name", null, "hname:'필드명', required:'Y'");
+f.addElement("email", null, "hname:'이메일', required:'Y', type:'email'");
 if(m.isPost() && f.validate()) {
     // 폼 검증 통과 후 처리
+    String value = f.get("field_name");
+    int number = f.getInt("number_field");
 }
 %>
 \`\`\`
 
 맑은프레임워크에서는 Form의 validate() 메서드를 사용하여 입력값 검증을 수행하는 것을 권장합니다.`);
       }
+      
+      // 파일 업로드 체크
+      if (code.includes('f.saveFile') || code.includes('f.getFileName')) {
+        strengths.push({
+          type: 'framework',
+          message: 'Form 클래스를 사용하여 파일 업로드를 처리하고 있습니다.',
+          score: 5,
+          explanation: 'Form.saveFile()을 사용하면 안전하게 파일을 업로드할 수 있습니다.'
+        });
+      }
     }
     
-    // 7. Malgn 클래스 사용 체크 (맑은프레임워크 핵심 유틸리티)
-    if (code.includes('Malgn.') || code.includes('m.js') || code.includes('m.isPost') || code.includes('m.qs')) {
-      strengths.push(`✅ Malgn 클래스 사용: 맑은프레임워크의 Malgn 유틸리티를 사용하고 있습니다.`);
+    // 7. Malgn 클래스 사용 체크 (맑은프레임워크 핵심 유틸리티) - 실제 util 파일 기반
+    const malgnStaticMethods = [
+      'Malgn.time', 'Malgn.nf', 'Malgn.replace', 'Malgn.split', 'Malgn.join',
+      'Malgn.getItem', 'Malgn.cutString', 'Malgn.encode', 'Malgn.encrypt',
+      'Malgn.delFileRoot', 'Malgn.errorLog', 'Malgn.arr2loop', 'Malgn.getUploadUrl',
+      'Malgn.getUploadPath', 'Malgn.sha256', 'Malgn.md5', 'Malgn.htt', 'Malgn.nl2br',
+      'Malgn.getTimeString', 'Malgn.diffDate', 'Malgn.addDate', 'Malgn.strToDate',
+      'Malgn.getFileExt', 'Malgn.getFileMD5', 'Malgn.readFile', 'Malgn.writeFile',
+      'Malgn.copyFile', 'Malgn.delFile', 'Malgn.getUniqId', 'Malgn.repeatString',
+      'Malgn.inArray', 'Malgn.getMimeType', 'Malgn.exec', 'Malgn.chmod',
+      'Malgn.urlencode', 'Malgn.urldecode', 'Malgn.strToMap', 'Malgn.mapToString',
+      'Malgn.serialize', 'Malgn.unserialize', 'Malgn.htmlToText', 'Malgn.stripTags',
+      'Malgn.strpad', 'Malgn.strrpad', 'Malgn.getFileSize', 'Malgn.round',
+      'Malgn.numberFormat', 'Malgn.dirname', 'Malgn.addSlashes', 'Malgn.crc32',
+      'Malgn.bytesToHex', 'Malgn.hexToBytes', 'Malgn.parseInt', 'Malgn.parseLong',
+      'Malgn.parseDouble', 'Malgn.getPercent'
+    ];
+    
+    const malgnInstanceMethods = [
+      'm.isPost', 'm.jsAlert', 'm.jsError', 'm.jsReplace', 'm.jsErrClose',
+      'm.qs', 'm.rs', 'm.ri', 'm.getUploadUrl', 'm.getUploadPath', 'm.redirect',
+      'm.getCookie', 'm.setCookie', 'm.delCookie', 'm.getSession', 'm.setSession',
+      'm.getQueryString', 'm.getThisURI', 'm.getThisURL', 'm.log', 'm.mail',
+      'm.download', 'm.output', 'm.p', 'm.getScriptDir', 'm.getWebUrl',
+      'm.getRemoteAddr', 'm.mailer', 'm.msg', 'm.msgArray', 'm.masking',
+      'm.urlFilter', 'm.startTimer', 'm.stopTimer', 'm.jsonError', 'm.jsonSuccess',
+      'm.httpError', 'm.js', 'm.request', 'm.reqInt', 'm.reqSql', 'm.reqArr',
+      'm.reqEnum', 'm.reqBody', 'm.reqMap', 'm.isMobile', 'm.eq', 'm.jsonToMap',
+      'm.jsonToList', 'm.getValue', 'm.p'
+    ];
+    
+    let malgnUsageCount = 0;
+    malgnStaticMethods.forEach(method => {
+      if (code.includes(method + '(')) malgnUsageCount++;
+    });
+    malgnInstanceMethods.forEach(method => {
+      if (code.includes(method + '(')) malgnUsageCount++;
+    });
+    
+    if (malgnUsageCount > 0) {
+      strengths.push({
+        type: 'framework',
+        message: `Malgn 유틸리티를 ${malgnUsageCount}개 이상 사용하고 있습니다.`,
+        score: Math.min(10, malgnUsageCount * 2),
+        explanation: '맑은프레임워크의 Malgn 클래스는 다양한 유틸리티 메서드를 제공합니다.'
+      });
     }
     
-    // 8. Template 클래스 사용 체크 (맑은프레임워크 핵심 클래스)
-    if (code.includes('p.setBody') || code.includes('p.setVar') || code.includes('p.setLoop') || code.includes('p.display')) {
-      strengths.push(`✅ Template 클래스 사용: 맑은프레임워크의 Template 클래스를 사용하여 화면을 구성하고 있습니다.`);
+    // 8. Template/Page 클래스 사용 체크 (맑은프레임워크 핵심 클래스) - 실제 util 파일 기반
+    const templateMethods = [
+      'p.setBody', 'p.setVar', 'p.setLoop', 'p.display', 'p.print', 'p.fetch',
+      'p.fetchString', 'p.fetchRoot', 'p.fetchAll', 'p.displayJSON', 'p.setLayout',
+      'p.setPageInfo', 'p.setType', 'p.setWriter', 'p.setRequest', 'p.setResponse',
+      'p.setPageContext', 'p.setRoot', 'p.setBaseRoot', 'p.setLanguage', 'p.setMessage',
+      'p.clear', 'p.printJSON'
+    ];
+    
+    let templateUsageCount = 0;
+    templateMethods.forEach(method => {
+      if (code.includes(method + '(')) templateUsageCount++;
+    });
+    
+    if (templateUsageCount > 0) {
+      strengths.push({
+        type: 'framework',
+        message: `Template/Page 클래스를 ${templateUsageCount}개 이상 사용하고 있습니다.`,
+        score: Math.min(10, templateUsageCount * 2),
+        explanation: '맑은프레임워크의 Template/Page 클래스는 화면 출력을 담당합니다.'
+      });
       
       // display() 호출 체크
-      if ((code.includes('p.setBody') || code.includes('p.setVar')) && !code.includes('p.display()')) {
+      if ((code.includes('p.setBody') || code.includes('p.setVar') || code.includes('p.setLayout')) && !code.includes('p.display()')) {
         suggestions.push(`💡 **Template display() 메서드 호출 (필수):**
 
 \`\`\`jsp
 <%
 p.setBody("template_name");
 p.setVar("var_name", value);
+p.setLoop("loop_name", list);
 p.display();  // 반드시 호출해야 화면이 출력됨
 %>
 \`\`\`
 
 맑은프레임워크에서는 Template의 display() 메서드를 호출해야 화면이 출력됩니다.`);
       }
+      
+      // 템플릿 변수 사용 체크
+      const templateVars = code.match(/\$\{[^}]+\}/g) || [];
+      const templateVars2 = code.match(/\{\{[^}]+\}\}/g) || [];
+      if (templateVars.length > 0 || templateVars2.length > 0) {
+        strengths.push({
+          type: 'framework',
+          message: `템플릿 변수를 ${templateVars.length + templateVars2.length}개 사용하고 있습니다.`,
+          score: 5,
+          explanation: '템플릿 변수를 사용하면 XSS 공격을 방지할 수 있습니다.'
+        });
+      }
     }
     
-    // 9. 템플릿 변수 사용 체크
-    const templateVars = code.match(/\$\{[^}]+\}/g) || [];
-    if (templateVars.length > 0) {
-      strengths.push(`✅ 템플릿 변수 사용: ${templateVars.length}개의 템플릿 변수를 사용하고 있습니다.`);
+    // 9. ListManager 클래스 사용 체크 - 실제 util 파일 기반
+    const listManagerMethods = [
+      'lm.setRequest', 'lm.setListNum', 'lm.setTable', 'lm.setFields',
+      'lm.addWhere', 'lm.addSearch', 'lm.setOrderBy', 'lm.getDataSet',
+      'lm.getTotalString', 'lm.getPaging', 'lm.getPageData'
+    ];
+    
+    let listManagerUsageCount = 0;
+    listManagerMethods.forEach(method => {
+      if (code.includes(method + '(')) listManagerUsageCount++;
+    });
+    
+    if (listManagerUsageCount > 0) {
+      strengths.push({
+        type: 'framework',
+        message: `ListManager 클래스를 ${listManagerUsageCount}개 이상 사용하고 있습니다.`,
+        score: Math.min(10, listManagerUsageCount * 2),
+        explanation: '맑은프레임워크의 ListManager 클래스는 목록 조회와 페이징을 담당합니다.'
+      });
     }
     
-    // 10. 포스트백 방식 체크 - m.isPost() 사용 시 권장
+    // 10. ExcelWriter 클래스 사용 체크 - 실제 util 파일 기반
+    const excelWriterMethods = [
+      'ex.setData', 'ex.write', 'ex.setSheet', 'ex.put', 'ex.merge',
+      'ex.getCellFormat', 'ExcelWriter'
+    ];
+    
+    let excelWriterUsageCount = 0;
+    excelWriterMethods.forEach(method => {
+      if (code.includes(method + '(') || code.includes('new ExcelWriter')) excelWriterUsageCount++;
+    });
+    
+    if (excelWriterUsageCount > 0) {
+      strengths.push({
+        type: 'framework',
+        message: `ExcelWriter 클래스를 사용하고 있습니다.`,
+        score: 5,
+        explanation: '맑은프레임워크의 ExcelWriter 클래스는 Excel 파일 생성을 담당합니다.'
+      });
+    }
+    
+    // 11. 포스트백 방식 체크 - m.isPost() 사용 시 권장
     if (code.includes('request.getParameter') && !code.includes('m.isPost') && !code.includes('postback')) {
       suggestions.push(`💡 **포스트백 방식 사용 (권장):**
 
