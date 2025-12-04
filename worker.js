@@ -1646,6 +1646,7 @@ export class JSPCodeAnalyzer {
     issues.push(...frameworkCompliance.issues);
     suggestions.push(...frameworkCompliance.suggestions);
     strengths.push(...frameworkCompliance.strengths);
+    const frameworkScore = frameworkCompliance.score || 0;
     
     // 2. 코드 품질 체크
     const quality = this.checkCodeQuality(code, lines);
@@ -1659,10 +1660,14 @@ export class JSPCodeAnalyzer {
     suggestions.push(...security.suggestions);
     issues.push(...security.issues.map(i => `🔒 [${i.severity}] ${i.name}: ${i.issue}`));
     
+    // 전체 점수 계산
+    const totalScore = frameworkScore + (security.totalChecked ? ((security.totalChecked - secureCodingIssues.length) / security.totalChecked * 100) : 0);
+    const level = this.calculateLevel(totalScore);
+    
     return {
       explanation: this.generateExplanation(code, filename, structure),
-      strengths: strengths.length > 0 ? strengths.join('\n\n') : '코드의 좋은 점을 찾는 중...',
-      improvements: issues.length > 0 ? issues.join('\n\n') : '개선할 부분이 없습니다.',
+      strengths: this.formatStrengths(strengths),
+      improvements: this.formatIssues(issues),
       suggestions: this.formatDetailedSuggestions(suggestions, security.suggestions),
       best_practices: this.generateBestPractices(code, structure),
       secure_coding: {
@@ -1673,8 +1678,91 @@ export class JSPCodeAnalyzer {
         code_fixes: security.codeFixes || []
       },
       full_review: this.generateFullReview(code, filename, structure, issues, suggestions, strengths, secureCodingIssues),
-      code_fixes: security.codeFixes || []
+      code_fixes: security.codeFixes || [],
+      score: {
+        total: Math.max(0, Math.min(100, totalScore)),
+        framework: frameworkScore,
+        security: security.totalChecked ? ((security.totalChecked - secureCodingIssues.length) / security.totalChecked * 100) : 0,
+        level: level.name,
+        levelDescription: level.description,
+        nextLevel: level.nextLevel
+      }
     };
+  }
+  
+  calculateLevel(score) {
+    if (score >= 90) {
+      return {
+        name: '고급',
+        description: '맑은프레임워크를 매우 잘 활용하고 있습니다!',
+        nextLevel: null
+      };
+    } else if (score >= 70) {
+      return {
+        name: '중급',
+        description: '맑은프레임워크를 잘 활용하고 있습니다. 조금만 더 개선하면 완벽합니다!',
+        nextLevel: '고급 (90점 이상)'
+      };
+    } else if (score >= 50) {
+      return {
+        name: '초급',
+        description: '맑은프레임워크의 기본을 이해하고 있습니다. 계속 연습하면 더 좋아질 거예요!',
+        nextLevel: '중급 (70점 이상)'
+      };
+    } else {
+      return {
+        name: '신입',
+        description: '맑은프레임워크를 배우는 단계입니다. 아래 개선 사항을 참고하여 차근차근 개선해보세요!',
+        nextLevel: '초급 (50점 이상)'
+      };
+    }
+  }
+  
+  formatStrengths(strengths) {
+    if (strengths.length === 0) return '코드의 좋은 점을 찾는 중...';
+    
+    return strengths.map((strength, idx) => {
+      if (typeof strength === 'string') {
+        return `${idx + 1}. ${strength}`;
+      } else {
+        let formatted = `${idx + 1}. ${strength.message}`;
+        if (strength.explanation) {
+          formatted += `\n   💡 ${strength.explanation}`;
+        }
+        if (strength.score) {
+          formatted += `\n   ⭐ 점수: +${strength.score}점`;
+        }
+        return formatted;
+      }
+    }).join('\n\n');
+  }
+  
+  formatIssues(issues) {
+    if (issues.length === 0) return '개선할 부분이 없습니다. 완벽합니다! 🎉';
+    
+    return issues.map((issue, idx) => {
+      if (typeof issue === 'string') {
+        return `${idx + 1}. ${issue}`;
+      } else {
+        let formatted = `${idx + 1}. [${issue.severity || 'MEDIUM'}] ${issue.message}`;
+        if (issue.explanation) {
+          formatted += `\n   📖 설명: ${issue.explanation}`;
+        }
+        if (issue.why) {
+          formatted += `\n   ❓ 왜 중요한가요?: ${issue.why}`;
+        }
+        if (issue.howToFix) {
+          formatted += `\n   🔧 해결 방법: ${issue.howToFix}`;
+        }
+        if (issue.score) {
+          formatted += `\n   ⚠️ 점수: ${issue.score}점`;
+        }
+        if (issue.beforeCode && issue.afterCode) {
+          formatted += `\n\n   ❌ 현재 코드:\n\`\`\`jsp\n${issue.beforeCode}\n\`\`\`\n\n   ✅ 수정된 코드:\n\`\`\`jsp\n${issue.afterCode}\n\`\`\``;
+        }
+        return formatted;
+      }
+    }).join('\n\n');
   }
   
   formatDetailedSuggestions(regularSuggestions, secureSuggestions) {
@@ -1740,6 +1828,7 @@ export class JSPCodeAnalyzer {
   
   checkFrameworkCompliance(code, lines) {
     const issues = [], suggestions = [], strengths = [];
+    let totalScore = 0;
     
     // 1. init.jsp include 체크 - 정확한 패턴 매칭
     const initJspPatterns = [
@@ -1751,20 +1840,33 @@ export class JSPCodeAnalyzer {
     const hasInitJsp = initJspPatterns.some(pattern => pattern.test(code));
     
     if (!hasInitJsp) {
-      issues.push(`⚠️ 맑은프레임워크 가이드 위반: init.jsp를 include하지 않았습니다.`);
-      suggestions.push(`💡 **init.jsp include (필수):**
-
-\`\`\`jsp
-<%@ page contentType="text/html; charset=utf-8" %>
+      issues.push({
+        type: 'framework',
+        severity: 'CRITICAL',
+        message: 'init.jsp를 include하지 않았습니다.',
+        score: -20,
+        explanation: '맑은프레임워크를 사용하려면 반드시 init.jsp를 include해야 합니다. init.jsp에는 맑은프레임워크의 핵심 객체들(f, m, p, auth 등)이 초기화되어 있습니다.',
+        beforeCode: `<%@ page contentType="text/html; charset=utf-8" %>
+<%
+// ❌ init.jsp가 없으면 f, m, p 등의 객체를 사용할 수 없습니다
+String userId = request.getParameter("user_id");
+%>`,
+        afterCode: `<%@ page contentType="text/html; charset=utf-8" %>
 <%@ include file="/init.jsp" %>
 <%
-// 코드 작성
-%>
-\`\`\`
-
-맑은프레임워크를 사용하려면 반드시 init.jsp를 include해야 합니다.`);
+// ✅ init.jsp를 include하면 f, m, p 등의 객체를 사용할 수 있습니다
+String userId = f.get("user_id");
+%>`,
+        why: 'init.jsp를 include하지 않으면 맑은프레임워크의 핵심 기능(Form, Malgn, Template 등)을 사용할 수 없습니다.',
+        howToFix: '파일 상단에 <%@ include file="/init.jsp" %> 또는 <%@ include file="init.jsp" %>를 추가하세요.'
+      });
     } else {
-      strengths.push(`✅ init.jsp include: 맑은프레임워크 가이드에 따라 init.jsp를 올바르게 include하고 있습니다.`);
+      strengths.push({
+        type: 'framework',
+        message: 'init.jsp를 올바르게 include하고 있습니다.',
+        score: 10,
+        explanation: '맑은프레임워크의 핵심 객체들을 사용할 수 있도록 init.jsp를 올바르게 include했습니다.'
+      });
     }
     
     // 2. Dao 클래스 사용 체크 - 맥락을 고려한 분석
@@ -1988,7 +2090,21 @@ if(m.isPost()) {
 맑은프레임워크에서는 m.isPost()를 사용하여 포스트백을 처리하는 것을 권장합니다.`);
     }
     
-    return { issues, suggestions, strengths };
+    // 점수 계산
+    issues.forEach(issue => {
+      if (issue && typeof issue === 'object' && issue.score) totalScore += issue.score;
+    });
+    strengths.forEach(strength => {
+      if (strength && typeof strength === 'object' && strength.score) totalScore += strength.score;
+    });
+    
+    return { 
+      issues, 
+      suggestions, 
+      strengths,
+      score: totalScore,
+      maxScore: 100
+    };
   }
   
   checkCodeQuality(code, lines) {

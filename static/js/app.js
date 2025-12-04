@@ -160,9 +160,58 @@ function displayResults(data) {
     // AI 리뷰 표시
     const review = data.ai_review;
     const secureCoding = data.ai_review.secure_coding;
+    const score = data.ai_review.score;
+    
+    // 점수 및 레벨 표시
+    let scoreHtml = '';
+    if (score) {
+      const scorePercent = Math.round(score.total);
+      const levelColors = {
+        '신입': '#ff9800',
+        '초급': '#2196F3',
+        '중급': '#9C27B0',
+        '고급': '#4CAF50'
+      };
+      const levelColor = levelColors[score.level] || '#667eea';
+      
+      scoreHtml = `
+        <div class="score-card" style="background: linear-gradient(135deg, ${levelColor}15 0%, ${levelColor}05 100%); border: 2px solid ${levelColor}; border-radius: 16px; padding: 24px; margin-bottom: 32px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px;">
+            <div>
+              <div style="font-size: 0.9em; color: #666; margin-bottom: 8px; font-weight: 500;">코드 품질 점수</div>
+              <div style="display: flex; align-items: baseline; gap: 12px;">
+                <span style="font-size: 3em; font-weight: 700; color: ${levelColor};">${scorePercent}</span>
+                <span style="font-size: 1.5em; color: #999;">/ 100</span>
+              </div>
+            </div>
+            <div style="flex: 1; min-width: 200px;">
+              <div style="background: #e9ecef; border-radius: 12px; height: 12px; overflow: hidden; margin-bottom: 12px;">
+                <div style="background: linear-gradient(90deg, ${levelColor} 0%, ${levelColor}CC 100%); height: 100%; width: ${scorePercent}%; transition: width 0.5s ease;"></div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 1.3em; font-weight: 600; color: ${levelColor};">${score.level}</span>
+                <span style="color: #666; font-size: 0.95em;">${score.levelDescription}</span>
+              </div>
+              ${score.nextLevel ? `<div style="margin-top: 8px; color: #999; font-size: 0.9em;">다음 목표: ${score.nextLevel}</div>` : ''}
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-top: 20px; padding-top: 20px; border-top: 1px solid #e9ecef;">
+            <div>
+              <div style="font-size: 0.85em; color: #666; margin-bottom: 4px;">프레임워크</div>
+              <div style="font-size: 1.2em; font-weight: 600; color: #667eea;">${Math.round(score.framework)}점</div>
+            </div>
+            <div>
+              <div style="font-size: 0.85em; color: #666; margin-bottom: 4px;">보안</div>
+              <div style="font-size: 1.2em; font-weight: 600; color: #f44336;">${Math.round(score.security)}점</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
     
     aiReview.innerHTML = `
         <h2>🤖 코드 리뷰</h2>
+        ${scoreHtml}
         ${review.explanation ? `
             <div class="review-section" style="border-left-color: #2196F3;">
                 <h3>📝 코드 설명</h3>
