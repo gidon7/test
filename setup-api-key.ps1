@@ -41,3 +41,4 @@ try {
     Write-Host "그리고 프롬프트가 나오면 API 키를 입력하세요." -ForegroundColor Yellow
 }
 
+

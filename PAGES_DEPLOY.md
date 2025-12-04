@@ -31,3 +31,4 @@ Workers를 계속 사용하는 것을 권장합니다. Pages로 변경하려면:
 1. worker.js의 모든 로직을 functions/api/review.js에 포함시키거나
 2. 별도 Workers를 배포하고 프론트엔드에서 호출
 
+

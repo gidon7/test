@@ -1,7 +1,7 @@
 // Cloudflare Pages용 Worker
 // Pages는 정적 파일을 서빙하고, 이 Worker는 API 요청을 처리합니다
 
-import { JavaCodeAnalyzer, analyzeCodeStructure } from './worker.js';
+import { JavaCodeAnalyzer, JSPCodeAnalyzer, analyzeCodeStructure } from './worker.js';
 
 export default {
   async fetch(request, env) {
@@ -36,9 +36,9 @@ export default {
           );
         }
 
-        if (!file.name.endsWith('.java')) {
+        if (!file.name.endsWith('.java') && !file.name.endsWith('.jsp')) {
           return new Response(
-            JSON.stringify({ error: 'Java 파일만 업로드 가능합니다.' }),
+            JSON.stringify({ error: 'Java 또는 JSP 파일만 업로드 가능합니다.' }),
             {
               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
               status: 400,
@@ -54,7 +54,12 @@ export default {
 
         // 코드 리뷰
         try {
-          const analyzer = new JavaCodeAnalyzer();
+          let analyzer;
+          if (file.name.endsWith('.jsp')) {
+            analyzer = new JSPCodeAnalyzer();
+          } else {
+            analyzer = new JavaCodeAnalyzer();
+          }
           const aiReview = analyzer.analyze(codeContent, file.name);
 
           return new Response(

@@ -9,17 +9,17 @@
 <body>
     <div class="container">
         <header>
-            <h1>☕ Java 코드 리뷰 시스템</h1>
-            <p class="subtitle">AI 기반 코드 분석 및 개선 제안</p>
+            <h1>☕ Java/JSP 코드 리뷰 시스템</h1>
+            <p class="subtitle">AI 기반 코드 분석 및 개선 제안 (맑은프레임워크 가이드 지원)</p>
         </header>
 
         <div class="upload-section">
             <div class="upload-box" id="uploadBox">
-                <input type="file" id="fileInput" accept=".java" style="display: none;">
+                <input type="file" id="fileInput" accept=".java,.jsp" style="display: none;">
                 <div class="upload-area" onclick="document.getElementById('fileInput').click()">
                     <div class="upload-icon">📁</div>
-                    <p class="upload-text">Java 파일을 클릭하거나 드래그하여 업로드</p>
-                    <p class="upload-hint">.java 파일만 지원됩니다</p>
+                    <p class="upload-text">Java 또는 JSP 파일을 클릭하거나 드래그하여 업로드</p>
+                    <p class="upload-hint">.java 또는 .jsp 파일 지원</p>
                 </div>
             </div>
             <div class="file-info" id="fileInfo" style="display: none;">
@@ -44,4 +44,5 @@
     <script src="/static/js/app.js"></script>
 </body>
 </html>
+
 

@@ -4,8 +4,8 @@ let selectedFile = null;
 document.getElementById('fileInput').addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (file) {
-        if (!file.name.endsWith('.java')) {
-            showError('Java 파일만 업로드 가능합니다.');
+        if (!file.name.endsWith('.java') && !file.name.endsWith('.jsp')) {
+            showError('Java 또는 JSP 파일만 업로드 가능합니다.');
             return;
         }
         selectedFile = file;
@@ -29,12 +29,12 @@ uploadArea.addEventListener('drop', (e) => {
     uploadArea.style.background = '#f8f9fa';
     
     const file = e.dataTransfer.files[0];
-    if (file && file.name.endsWith('.java')) {
+    if (file && (file.name.endsWith('.java') || file.name.endsWith('.jsp'))) {
         selectedFile = file;
         document.getElementById('fileInput').files = e.dataTransfer.files;
         showFileInfo(file.name);
     } else {
-        showError('Java 파일만 업로드 가능합니다.');
+        showError('Java 또는 JSP 파일만 업로드 가능합니다.');
     }
 });
 
@@ -122,14 +122,30 @@ function displayResults(data) {
                 <div class="stat-label">코드 라인</div>
                 <div class="stat-value">${analysis.code_lines}</div>
             </div>
+            ${analysis.class_count !== undefined ? `
             <div class="stat-item">
                 <div class="stat-label">클래스 수</div>
                 <div class="stat-value">${analysis.class_count}</div>
             </div>
+            ` : ''}
+            ${analysis.method_count !== undefined ? `
             <div class="stat-item">
                 <div class="stat-label">메서드 수</div>
                 <div class="stat-value">${analysis.method_count}</div>
             </div>
+            ` : ''}
+            ${analysis.scriptlet_count !== undefined ? `
+            <div class="stat-item">
+                <div class="stat-label">스크립틀릿 수</div>
+                <div class="stat-value">${analysis.scriptlet_count}</div>
+            </div>
+            ` : ''}
+            ${analysis.directive_count !== undefined ? `
+            <div class="stat-item">
+                <div class="stat-label">지시어 수</div>
+                <div class="stat-value">${analysis.directive_count}</div>
+            </div>
+            ` : ''}
             <div class="stat-item">
                 <div class="stat-label">주석 비율</div>
                 <div class="stat-value">${analysis.comment_ratio}%</div>

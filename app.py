@@ -34,8 +34,8 @@ async def review_code(file: UploadFile = File(...)):
     """Java 코드 리뷰 API"""
     try:
         # 파일 확장자 확인
-        if not file.filename.endswith('.java'):
-            raise HTTPException(status_code=400, detail="Java 파일만 업로드 가능합니다.")
+        if not (file.filename.endswith('.java') or file.filename.endswith('.jsp')):
+            raise HTTPException(status_code=400, detail="Java 또는 JSP 파일만 업로드 가능합니다.")
         
         # 파일 저장
         file_path = f"uploads/{file.filename}"

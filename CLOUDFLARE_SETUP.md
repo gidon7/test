@@ -44,3 +44,4 @@ Cloudflare Dashboard에서:
 - OpenAI API 키가 제대로 설정되었는지 확인
 - API 키에 충분한 크레딧이 있는지 확인
 
+

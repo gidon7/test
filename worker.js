@@ -1630,6 +1630,527 @@ CompletableFuture<String> future = CompletableFuture.supplyAsync(() -> {
   }
 }
 
+// 맑은프레임워크 JSP 코드 분석기
+export class JSPCodeAnalyzer {
+  analyze(code, filename) {
+    const lines = code.split('\n');
+    const issues = [];
+    const suggestions = [];
+    const strengths = [];
+    const secureCodingIssues = [];
+    
+    const structure = this.analyzeStructure(code);
+    
+    // 1. 맑은프레임워크 가이드 준수 체크
+    const frameworkCompliance = this.checkFrameworkCompliance(code, lines);
+    issues.push(...frameworkCompliance.issues);
+    suggestions.push(...frameworkCompliance.suggestions);
+    strengths.push(...frameworkCompliance.strengths);
+    
+    // 2. 코드 품질 체크
+    const quality = this.checkCodeQuality(code, lines);
+    issues.push(...quality.issues);
+    suggestions.push(...quality.suggestions);
+    strengths.push(...quality.strengths);
+    
+    // 3. 보안 체크
+    const security = this.checkSecurity(code);
+    secureCodingIssues.push(...security.issues);
+    suggestions.push(...security.suggestions);
+    issues.push(...security.issues.map(i => `🔒 [${i.severity}] ${i.name}: ${i.issue}`));
+    
+    return {
+      explanation: this.generateExplanation(code, filename, structure),
+      strengths: strengths.length > 0 ? strengths.join('\n\n') : '코드의 좋은 점을 찾는 중...',
+      improvements: issues.length > 0 ? issues.join('\n\n') : '개선할 부분이 없습니다.',
+      suggestions: this.formatDetailedSuggestions(suggestions, security.suggestions),
+      best_practices: this.generateBestPractices(code, structure),
+      secure_coding: {
+        total_checked: security.totalChecked || 20,
+        found_issues: secureCodingIssues.length,
+        issues: secureCodingIssues,
+        compliance_rate: security.totalChecked ? ((security.totalChecked - secureCodingIssues.length) / security.totalChecked * 100).toFixed(1) : '0',
+        code_fixes: security.codeFixes || []
+      },
+      full_review: this.generateFullReview(code, filename, structure, issues, suggestions, strengths, secureCodingIssues),
+      code_fixes: security.codeFixes || []
+    };
+  }
+  
+  formatDetailedSuggestions(regularSuggestions, secureSuggestions) {
+    let formatted = '';
+    
+    if (regularSuggestions.length > 0) {
+      formatted += '## 일반 개선 제안\n\n' + regularSuggestions.join('\n\n') + '\n\n';
+    }
+    
+    if (secureSuggestions && secureSuggestions.length > 0) {
+      formatted += '## 🔒 시큐어 코딩 개선 제안 (맑은프레임워크 가이드)\n\n';
+      secureSuggestions.forEach((s, idx) => {
+        const idxNum = idx + 1;
+        const name = s.name || '';
+        const severity = s.severity || '';
+        const issue = s.issue || '';
+        const suggestion = s.suggestion || '';
+        
+        formatted += '### ' + idxNum + '. ' + name + ' [' + severity + ']\n\n';
+        formatted += '**문제점:** ' + issue + '\n\n';
+        formatted += '**개선 방안:**\n```jsp\n' + suggestion + '\n```\n\n';
+      });
+    }
+    
+    return formatted || '추가 제안사항이 없습니다.';
+  }
+  
+  analyzeStructure(code) {
+    const hasInitJsp = code.includes('include file="/init.jsp"') || code.includes("include file='/init.jsp'");
+    const hasDao = code.match(/\w+Dao\s+\w+\s*=\s*new\s+\w+Dao\(\)/);
+    const hasDataSet = code.includes('DataSet');
+    const hasAuth = code.includes('Auth') || code.includes('auth.');
+    const hasConfig = code.includes('Config.');
+    const hasTemplateVars = code.match(/\$\{[^}]+\}/g) || [];
+    const hasScriptlet = code.match(/<%[^%]+%>/g) || [];
+    
+    return {
+      hasInitJsp: hasInitJsp,
+      daoCount: (code.match(/\w+Dao\s+\w+\s*=/g) || []).length,
+      dataSetCount: (code.match(/DataSet\s+\w+/g) || []).length,
+      hasAuth: hasAuth,
+      hasConfig: hasConfig,
+      templateVarCount: hasTemplateVars.length,
+      scriptletCount: hasScriptlet.length,
+      hasComments: code.includes('//') || code.includes('/*') || code.includes('<!--')
+    };
+  }
+  
+  checkFrameworkCompliance(code, lines) {
+    const issues = [], suggestions = [], strengths = [];
+    
+    // 1. init.jsp include 체크
+    if (!code.includes('include file="/init.jsp"') && !code.includes("include file='/init.jsp'")) {
+      issues.push(`⚠️ 맑은프레임워크 가이드 위반: init.jsp를 include하지 않았습니다.`);
+      suggestions.push(`💡 **init.jsp include (필수):**
+
+\`\`\`jsp
+<%@ page contentType="text/html; charset=utf-8" %>
+<%@ include file="/init.jsp" %>
+<%
+// 코드 작성
+%>
+\`\`\`
+
+맑은프레임워크를 사용하려면 반드시 init.jsp를 include해야 합니다.`);
+    } else {
+      strengths.push(`✅ init.jsp include: 맑은프레임워크 가이드에 따라 init.jsp를 올바르게 include하고 있습니다.`);
+    }
+    
+    // 2. Dao 클래스 사용 체크
+    const daoUsage = code.match(/(\w+Dao)\s+(\w+)\s*=\s*new\s+(\w+Dao)\(\)/);
+    if (daoUsage) {
+      strengths.push(`✅ Dao 클래스 사용: ${daoUsage[1]}를 사용하여 데이터베이스 접근을 하고 있습니다.`);
+      
+      // find() 메서드 사용 체크
+      if (!code.includes('.find(')) {
+        issues.push(`⚠️ 맑은프레임워크 가이드: Dao의 find() 메서드를 사용하지 않았습니다.`);
+        suggestions.push(`💡 **Dao find() 메서드 사용:**
+
+\`\`\`jsp
+<%
+UserDao user = new UserDao();
+DataSet info = user.find("user_id = 'kildong'");
+if(info.next()) {
+    String userId = info.s("user_id");
+    // ...
+}
+%>
+\`\`\`
+
+맑은프레임워크에서는 Dao 클래스의 find() 메서드를 사용하여 데이터를 조회합니다.`);
+      }
+    }
+    
+    // 3. DataSet 사용 체크
+    if (code.includes('DataSet')) {
+      strengths.push(`✅ DataSet 사용: 맑은프레임워크의 DataSet을 사용하고 있습니다.`);
+      
+      // next() 메서드 체크
+      if (code.includes('DataSet') && !code.includes('.next()')) {
+        issues.push(`⚠️ 맑은프레임워크 가이드: DataSet의 next() 메서드를 사용하지 않았습니다.`);
+        suggestions.push(`💡 **DataSet next() 메서드 사용:**
+
+\`\`\`jsp
+<%
+DataSet info = user.find("user_id = 'kildong'");
+if(info.next()) {
+    String userId = info.s("user_id");
+    String userName = info.s("user_name");
+}
+%>
+\`\`\`
+
+DataSet에서 데이터를 읽기 전에 반드시 next() 메서드를 호출해야 합니다.`);
+      }
+      
+      // s() 메서드 체크
+      if (code.includes('.next()') && !code.includes('.s(')) {
+        issues.push(`⚠️ 맑은프레임워크 가이드: DataSet의 s() 메서드를 사용하지 않았습니다.`);
+        suggestions.push(`💡 **DataSet s() 메서드 사용:**
+
+\`\`\`jsp
+<%
+if(info.next()) {
+    String userId = info.s("user_id");  // s() 메서드로 문자열 가져오기
+    int age = info.i("age");            // i() 메서드로 정수 가져오기
+}
+%>
+\`\`\`
+
+DataSet에서 데이터를 가져올 때는 s() (문자열), i() (정수), l() (long) 등의 메서드를 사용합니다.`);
+      }
+    }
+    
+    // 4. Auth 클래스 사용 체크 (로그인 관련)
+    if (code.includes('login') || code.includes('auth') || code.includes('인증')) {
+      if (!code.includes('Auth') && !code.includes('auth.')) {
+        issues.push(`⚠️ 맑은프레임워크 가이드: 로그인 처리를 위해 Auth 클래스를 사용하지 않았습니다.`);
+        suggestions.push(`💡 **Auth 클래스 사용 (로그인 처리):**
+
+\`\`\`jsp
+<%@ page contentType="text/html; charset=utf-8" %>
+<%@ include file="/init.jsp" %>
+<%
+UserDao user = new UserDao();
+DataSet info = user.find("user_id = 'kildong'");
+if(info.next()) {
+    auth.put("USER_ID", info.s("user_id"));
+    auth.setAuthInfo();  // 세션이나 쿠키에 인증정보 저장
+}
+%>
+\`\`\`
+
+맑은프레임워크에서는 Auth 클래스를 사용하여 인증 정보를 관리합니다.`);
+      } else {
+        strengths.push(`✅ Auth 클래스 사용: 맑은프레임워크의 Auth 클래스를 사용하여 인증을 처리하고 있습니다.`);
+        
+        // setAuthInfo() 체크
+        if (code.includes('auth.put') && !code.includes('auth.setAuthInfo()')) {
+          issues.push(`⚠️ 맑은프레임워크 가이드: auth.put() 후 setAuthInfo()를 호출하지 않았습니다.`);
+          suggestions.push(`💡 **Auth 인증정보 저장:**
+
+\`\`\`jsp
+<%
+auth.put("USER_ID", info.s("user_id"));
+auth.setAuthInfo();  // 반드시 호출해야 실제로 저장됨
+%>
+\`\`\`
+
+auth.put()로 인증정보를 등록한 후 반드시 setAuthInfo()를 호출해야 합니다.`);
+        }
+      }
+    }
+    
+    // 5. Config 클래스 사용 체크
+    if (code.includes('Config.') || code.includes('Config.get')) {
+      strengths.push(`✅ Config 클래스 사용: 맑은프레임워크의 Config 클래스를 사용하여 환경설정을 읽고 있습니다.`);
+    }
+    
+    // 6. 템플릿 변수 사용 체크
+    const templateVars = code.match(/\$\{[^}]+\}/g) || [];
+    if (templateVars.length > 0) {
+      strengths.push(`✅ 템플릿 변수 사용: ${templateVars.length}개의 템플릿 변수를 사용하고 있습니다.`);
+    }
+    
+    // 7. 포스트백 방식 체크
+    if (code.includes('request.getParameter') && !code.includes('postback')) {
+      issues.push(`⚠️ 맑은프레임워크 가이드: 포스트백 방식을 사용하지 않았습니다.`);
+      suggestions.push(`💡 **포스트백 방식 사용:**
+
+\`\`\`jsp
+<%
+if(postback) {
+    // 폼 제출 후 처리
+    String userId = request.getParameter("user_id");
+    // 유효성 체크 및 처리
+} else {
+    // 초기 페이지 로드
+}
+%>
+\`\`\`
+
+맑은프레임워크에서는 포스트백 방식을 사용하여 같은 페이지에서 폼 제출을 처리합니다.`);
+    }
+    
+    return { issues, suggestions, strengths };
+  }
+  
+  checkCodeQuality(code, lines) {
+    const issues = [], suggestions = [], strengths = [];
+    
+    // 스크립틀릿이 너무 많은 경우
+    const scriptlets = code.match(/<%[^%]+%>/g) || [];
+    if (scriptlets.length > 20) {
+      issues.push(`⚠️ 코드 품질: 스크립틀릿이 ${scriptlets.length}개로 너무 많습니다.`);
+      suggestions.push(`💡 **스크립틀릿 최소화:**
+
+\`\`\`jsp
+<%-- ❌ 나쁜 예: 모든 로직을 JSP에 작성 --%>
+<%
+// 많은 Java 코드
+%>
+
+<%-- ✅ 좋은 예: 로직은 Java 클래스로 분리 --%>
+<%
+UserService service = new UserService();
+List<User> users = service.getUsers();
+%>
+\`\`\`
+
+JSP에는 최소한의 로직만 두고, 복잡한 로직은 Java 클래스로 분리하는 것이 좋습니다.`);
+    }
+    
+    // 주석 체크
+    const commentRatio = (code.match(/<!--[\s\S]*?-->|<\/?%--[\s\S]*?--%>|(\/\/|\/\*)/g) || []).length / lines.length;
+    if (commentRatio < 0.05 && lines.length > 50) {
+      issues.push(`⚠️ 코드 품질: 주석이 부족합니다.`);
+      suggestions.push(`💡 **주석 추가:**
+
+\`\`\`jsp
+<%-- 사용자 목록 조회 --%>
+<%
+UserDao user = new UserDao();
+DataSet list = user.find("status = 'Y'");
+%>
+\`\`\`
+
+복잡한 로직에는 주석을 추가하여 가독성을 높이세요.`);
+    } else if (commentRatio > 0.1) {
+      strengths.push(`✅ 주석 사용: 적절한 주석 비율(${(commentRatio * 100).toFixed(1)}%)로 코드 가독성이 좋습니다.`);
+    }
+    
+    return { issues, suggestions, strengths };
+  }
+  
+  checkSecurity(code) {
+    const issues = [];
+    const suggestions = [];
+    const codeFixes = [];
+    let totalChecked = 0;
+    
+    // 1. SQL Injection 체크
+    totalChecked++;
+    if (code.includes('Statement') && code.includes('executeQuery') && !code.includes('PreparedStatement')) {
+      issues.push({
+        id: 'JSP-SC-001',
+        name: 'SQL Injection 위험',
+        issue: 'Statement를 직접 사용하여 SQL Injection 위험이 있습니다.',
+        severity: 'CRITICAL',
+        suggestion: `<%
+// ❌ 위험한 코드
+String sql = "SELECT * FROM users WHERE id = " + userId;
+Statement stmt = conn.createStatement();
+ResultSet rs = stmt.executeQuery(sql);
+
+// ✅ 안전한 코드 - 맑은프레임워크 Dao 사용
+UserDao user = new UserDao();
+DataSet info = user.find("id = ?", userId);
+if(info.next()) {
+    // 처리
+}
+%>`
+      });
+      suggestions.push({
+        name: 'SQL Injection 방지',
+        issue: 'Statement를 직접 사용하지 말고 맑은프레임워크의 Dao 클래스를 사용하세요.',
+        suggestion: `맑은프레임워크의 Dao 클래스는 자동으로 PreparedStatement를 사용하여 SQL Injection을 방지합니다.`,
+        severity: 'CRITICAL'
+      });
+    }
+    
+    // 2. XSS 체크
+    totalChecked++;
+    if (code.includes('out.print') || code.includes('response.getWriter') || code.match(/<%=.*request\.getParameter/g)) {
+      issues.push({
+        id: 'JSP-SC-002',
+        name: 'XSS 위험',
+        issue: '사용자 입력을 인코딩 없이 출력하고 있습니다.',
+        severity: 'HIGH',
+        suggestion: `<%
+// ❌ 위험한 코드
+String userInput = request.getParameter("name");
+out.print(userInput);
+%>
+
+<%-- ✅ 안전한 코드 - 맑은프레임워크 템플릿 변수 사용 --%>
+<%
+String userInput = request.getParameter("name");
+request.setAttribute("name", userInput);
+%>
+\${name}  <%-- 템플릿 변수는 자동으로 이스케이프 처리됨 --%>`
+      });
+      suggestions.push({
+        name: 'XSS 방지',
+        issue: '사용자 입력을 직접 출력하지 말고 템플릿 변수나 인코딩 처리를 하세요.',
+        suggestion: `맑은프레임워크의 템플릿 변수(\${변수})는 자동으로 HTML 이스케이프 처리가 됩니다.`,
+        severity: 'HIGH'
+      });
+    }
+    
+    // 3. 입력값 검증 체크
+    totalChecked++;
+    if (code.includes('request.getParameter') && !code.match(/if\s*\([^)]*\.(length|isEmpty|equals)/)) {
+      issues.push({
+        id: 'JSP-SC-003',
+        name: '입력값 검증 누락',
+        issue: '사용자 입력값에 대한 검증이 없습니다.',
+        severity: 'HIGH',
+        suggestion: `<%
+String userId = request.getParameter("user_id");
+if(userId == null || userId.trim().isEmpty()) {
+    out.print("<script>alert('사용자 ID를 입력하세요.'); history.back();</script>");
+    return;
+}
+// 추가 검증
+if(userId.length() > 50) {
+    out.print("<script>alert('사용자 ID는 50자 이하여야 합니다.'); history.back();</script>");
+    return;
+}
+%>`
+      });
+      suggestions.push({
+        name: '입력값 검증',
+        issue: '모든 사용자 입력값에 대해 null 체크, 길이 검증 등을 수행하세요.',
+        suggestion: `맑은프레임워크 가이드에 따라 데이터입력 유효성 체크를 반드시 수행해야 합니다.`,
+        severity: 'HIGH'
+      });
+    }
+    
+    // 4. 인증 체크 누락
+    totalChecked++;
+    if ((code.includes('delete') || code.includes('수정') || code.includes('삭제')) && !code.includes('auth.') && !code.includes('Auth')) {
+      issues.push({
+        id: 'JSP-SC-004',
+        name: '인증 체크 누락',
+        issue: '중요한 작업에 대한 인증 체크가 없습니다.',
+        severity: 'HIGH',
+        suggestion: `<%
+// ✅ 인증 체크
+if(!auth.isLogin()) {
+    out.print("<script>alert('로그인이 필요합니다.'); location.href='/login.jsp';</script>");
+    return;
+}
+
+// 또는 특정 권한 체크
+String userRole = auth.s("USER_ROLE");
+if(!"ADMIN".equals(userRole)) {
+    out.print("<script>alert('권한이 없습니다.'); history.back();</script>");
+    return;
+}
+%>`
+      });
+      suggestions.push({
+        name: '인증 체크',
+        issue: '중요한 작업(수정, 삭제 등) 전에 반드시 인증을 체크하세요.',
+        suggestion: `맑은프레임워크의 Auth 클래스를 사용하여 인증을 체크할 수 있습니다.`,
+        severity: 'HIGH'
+      });
+    }
+    
+    return {
+      issues,
+      suggestions,
+      totalChecked,
+      codeFixes
+    };
+  }
+  
+  generateExplanation(code, filename, structure) {
+    let exp = `이 파일은 맑은프레임워크 기반 JSP 파일입니다.\n\n`;
+    
+    if (structure.hasInitJsp) {
+      exp += `• init.jsp를 올바르게 include하고 있습니다.\n`;
+    } else {
+      exp += `• ⚠️ init.jsp를 include하지 않았습니다. (필수)\n`;
+    }
+    
+    if (structure.daoCount > 0) {
+      exp += `• ${structure.daoCount}개의 Dao 클래스를 사용하고 있습니다.\n`;
+    }
+    
+    if (structure.dataSetCount > 0) {
+      exp += `• DataSet을 ${structure.dataSetCount}번 사용하고 있습니다.\n`;
+    }
+    
+    if (structure.hasAuth) {
+      exp += `• Auth 클래스를 사용하여 인증을 처리하고 있습니다.\n`;
+    }
+    
+    if (structure.hasConfig) {
+      exp += `• Config 클래스를 사용하여 환경설정을 읽고 있습니다.\n`;
+    }
+    
+    if (structure.templateVarCount > 0) {
+      exp += `• ${structure.templateVarCount}개의 템플릿 변수를 사용하고 있습니다.\n`;
+    }
+    
+    if (structure.scriptletCount > 0) {
+      exp += `• ${structure.scriptletCount}개의 스크립틀릿이 포함되어 있습니다.\n`;
+    }
+    
+    return exp;
+  }
+  
+  generateBestPractices(code, structure) {
+    const practices = [];
+    
+    practices.push(`✅ init.jsp include: 맑은프레임워크를 사용하려면 반드시 init.jsp를 include해야 합니다.`);
+    practices.push(`✅ Dao 클래스 사용: 데이터베이스 접근은 Dao 클래스를 통해 수행하세요.`);
+    practices.push(`✅ DataSet 사용: 조회 결과는 DataSet을 사용하여 처리하세요.`);
+    practices.push(`✅ 템플릿 변수: 출력은 템플릿 변수(\${변수})를 사용하여 XSS를 방지하세요.`);
+    practices.push(`✅ 포스트백 방식: 같은 페이지에서 폼 제출을 처리할 때는 포스트백 방식을 사용하세요.`);
+    practices.push(`✅ 입력값 검증: 모든 사용자 입력값에 대해 검증을 수행하세요.`);
+    practices.push(`✅ 인증 체크: 중요 작업 전에 Auth 클래스를 사용하여 인증을 체크하세요.`);
+    
+    return practices.join('\n\n');
+  }
+  
+  generateFullReview(code, filename, structure, issues, suggestions, strengths, secureCodingIssues) {
+    let review = `# ${filename} 맑은프레임워크 가이드 준수 분석\n\n`;
+    review += `## 📊 코드 구조 분석\n`;
+    review += `- init.jsp include: ${structure.hasInitJsp ? '✅ 있음' : '❌ 없음 (필수)'}\n`;
+    review += `- Dao 클래스 사용: ${structure.daoCount}개\n`;
+    review += `- DataSet 사용: ${structure.dataSetCount}개\n`;
+    review += `- Auth 클래스 사용: ${structure.hasAuth ? '✅ 있음' : '❌ 없음'}\n`;
+    review += `- Config 클래스 사용: ${structure.hasConfig ? '✅ 있음' : '❌ 없음'}\n`;
+    review += `- 템플릿 변수: ${structure.templateVarCount}개\n`;
+    review += `- 스크립틀릿: ${structure.scriptletCount}개\n`;
+    review += `- 주석 사용: ${structure.hasComments ? '✅ 있음' : '❌ 없음'}\n\n`;
+    
+    if (strengths.length > 0) {
+      review += `## ✅ 장점\n${strengths.join('\n\n')}\n\n`;
+    }
+    
+    if (issues.length > 0) {
+      review += `## ⚠️ 개선 필요 사항\n${issues.join('\n\n')}\n\n`;
+    }
+    
+    if (suggestions.length > 0) {
+      review += `## 💡 상세 개선 제안\n${suggestions.join('\n\n')}\n\n`;
+    }
+    
+    if (secureCodingIssues && secureCodingIssues.length > 0) {
+      review += `## 🔒 시큐어 코딩 이슈 (맑은프레임워크 가이드)\n`;
+      review += `총 ${secureCodingIssues.length}개의 보안 이슈가 발견되었습니다.\n\n`;
+      secureCodingIssues.forEach((issue, idx) => {
+        review += `${idx + 1}. **[${issue.severity}] ${issue.name}**\n`;
+        review += `   - 문제: ${issue.issue}\n\n`;
+      });
+    }
+    
+    review += `\n## 📚 맑은프레임워크 Best Practices\n${this.generateBestPractices(code, structure)}`;
+    return review;
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -1671,9 +2192,9 @@ export default {
           );
         }
 
-        if (!file.name.endsWith('.java')) {
+        if (!file.name.endsWith('.java') && !file.name.endsWith('.jsp')) {
           return new Response(
-            JSON.stringify({ error: 'Java 파일만 업로드 가능합니다.' }),
+            JSON.stringify({ error: 'Java 또는 JSP 파일만 업로드 가능합니다.' }),
             {
               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
               status: 400,
@@ -1689,7 +2210,12 @@ export default {
 
         // 코드 리뷰 (규칙 기반, API 키 불필요)
         try {
-          const analyzer = new JavaCodeAnalyzer();
+          let analyzer;
+          if (file.name.endsWith('.jsp')) {
+            analyzer = new JSPCodeAnalyzer();
+          } else {
+            analyzer = new JavaCodeAnalyzer();
+          }
           const aiReview = analyzer.analyze(codeContent, file.name);
 
           return new Response(
@@ -1750,29 +2276,53 @@ export default {
 export function analyzeCodeStructure(code) {
   const lines = code.split('\n');
   const totalLines = lines.length;
-  const codeLines = lines.filter(line => line.trim() && !line.trim().startsWith('//'));
+  const codeLines = lines.filter(line => {
+    const trimmed = line.trim();
+    return trimmed && !trimmed.startsWith('//') && !trimmed.startsWith('<!--') && !trimmed.startsWith('<%@');
+  });
 
-  // 클래스 개수
-  const classCount = (code.match(/\bclass\s+\w+/g) || []).length;
+  // JSP 파일인지 확인
+  const isJSP = code.includes('<%@') || code.includes('<%') || code.includes('</%');
 
-  // 메서드 개수
-  const methodCount = (code.match(/\b(public|private|protected)\s+\w+\s+\w+\s*\([^)]*\)\s*\{/g) || []).length;
+  if (isJSP) {
+    // JSP 구조 분석
+    const scriptletCount = (code.match(/<%[^%]+%>/g) || []).length;
+    const directiveCount = (code.match(/<%@[^%]+%>/g) || []).length;
+    const expressionCount = (code.match(/<%=/g) || []).length;
+    const commentLines = lines.filter(line => {
+      const trimmed = line.trim();
+      return trimmed.startsWith('<!--') || trimmed.startsWith('//') || trimmed.startsWith('/*') || trimmed.includes('<%--');
+    }).length;
+    const commentRatio = totalLines > 0 ? (commentLines / totalLines * 100) : 0;
 
-  // 주석 비율
-  const commentLines = lines.filter(line => line.trim().startsWith('//') || line.includes('/*')).length;
-  const commentRatio = totalLines > 0 ? (commentLines / totalLines * 100) : 0;
+    return {
+      total_lines: totalLines,
+      code_lines: codeLines.length,
+      file_type: 'jsp',
+      scriptlet_count: scriptletCount,
+      directive_count: directiveCount,
+      expression_count: expressionCount,
+      comment_ratio: Math.round(commentRatio * 100) / 100,
+      estimated_complexity: scriptletCount + directiveCount,
+    };
+  } else {
+    // Java 구조 분석
+    const classCount = (code.match(/\bclass\s+\w+/g) || []).length;
+    const methodCount = (code.match(/\b(public|private|protected)\s+\w+\s+\w+\s*\([^)]*\)\s*\{/g) || []).length;
+    const commentLines = lines.filter(line => line.trim().startsWith('//') || line.includes('/*')).length;
+    const commentRatio = totalLines > 0 ? (commentLines / totalLines * 100) : 0;
+    const complexity = Math.abs(code.split('{').length - code.split('}').length);
 
-  // 복잡도 추정
-  const complexity = Math.abs(code.split('{').length - code.split('}').length);
-
-  return {
-    total_lines: totalLines,
-    code_lines: codeLines.length,
-    class_count: classCount,
-    method_count: methodCount,
-    comment_ratio: Math.round(commentRatio * 100) / 100,
-    estimated_complexity: complexity,
-  };
+    return {
+      total_lines: totalLines,
+      code_lines: codeLines.length,
+      file_type: 'java',
+      class_count: classCount,
+      method_count: methodCount,
+      comment_ratio: Math.round(commentRatio * 100) / 100,
+      estimated_complexity: complexity,
+    };
+  }
 }
 
 // 이 함수는 더 이상 사용되지 않습니다 (규칙 기반 분석으로 대체됨)
@@ -1799,7 +2349,7 @@ function extractSection(text, startKeyword, endKeyword) {
 function getHTML() {
   const css = `*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;padding:20px}.container{max-width:1200px;margin:0 auto;background:white;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,0.3);padding:40px}header{text-align:center;margin-bottom:40px}header h1{color:#333;font-size:2.5em;margin-bottom:10px}.subtitle{color:#666;font-size:1.1em}.upload-section{margin-bottom:40px}.upload-box{max-width:600px;margin:0 auto}.upload-area{border:3px dashed #667eea;border-radius:15px;padding:60px 20px;text-align:center;cursor:pointer;transition:all 0.3s;background:#f8f9fa}.upload-area:hover{background:#e9ecef;border-color:#764ba2;transform:translateY(-2px)}.upload-icon{font-size:4em;margin-bottom:20px}.upload-text{font-size:1.2em;color:#333;margin-bottom:10px;font-weight:bold}.upload-hint{font-size:0.9em;color:#666}.file-info{display:flex;align-items:center;justify-content:space-between;background:#e3f2fd;padding:15px 20px;border-radius:10px;margin-top:20px;max-width:600px;margin-left:auto;margin-right:auto}.clear-btn{background:#f44336;color:white;border:none;border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:1.2em;transition:transform 0.2s}.clear-btn:hover{transform:scale(1.1)}.loading{text-align:center;padding:40px}.spinner{border:4px solid #f3f3f3;border-top:4px solid #667eea;border-radius:50%;width:50px;height:50px;animation:spin 1s linear infinite;margin:0 auto 20px}@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}.results-section{margin-top:40px}.basic-analysis{background:#f8f9fa;border-radius:15px;padding:30px;margin-bottom:30px}.basic-analysis h2{color:#333;margin-bottom:20px;font-size:1.5em}.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px}.stat-item{background:white;padding:20px;border-radius:10px;text-align:center;box-shadow:0 2px 5px rgba(0,0,0,0.1)}.stat-label{color:#666;font-size:0.9em;margin-bottom:10px}.stat-value{color:#667eea;font-size:2em;font-weight:bold}.ai-review{background:#f8f9fa;border-radius:15px;padding:30px}.ai-review h2{color:#333;margin-bottom:20px;font-size:1.5em}.review-section{background:white;padding:20px;border-radius:10px;margin-bottom:20px;border-left:4px solid #667eea}.review-section h3{color:#667eea;margin-bottom:15px;font-size:1.2em}.review-section p{color:#555;line-height:1.8;white-space:pre-wrap}.error-message{background:#fee;color:#c33;padding:15px;border-radius:10px;margin-top:20px;text-align:center}@media (max-width:768px){.container{padding:20px}header h1{font-size:1.8em}.stats-grid{grid-template-columns:1fr}}`;
 
-  const js = `let selectedFile=null;document.getElementById('fileInput').addEventListener('change',function(e){const file=e.target.files[0];if(file){if(!file.name.endsWith('.java')){showError('Java 파일만 업로드 가능합니다.');return}selectedFile=file;showFileInfo(file.name)}});const uploadArea=document.querySelector('.upload-area');uploadArea.addEventListener('dragover',(e)=>{e.preventDefault();uploadArea.style.background='#e9ecef'});uploadArea.addEventListener('dragleave',()=>{uploadArea.style.background='#f8f9fa'});uploadArea.addEventListener('drop',(e)=>{e.preventDefault();uploadArea.style.background='#f8f9fa';const file=e.dataTransfer.files[0];if(file&&file.name.endsWith('.java')){selectedFile=file;document.getElementById('fileInput').files=e.dataTransfer.files;showFileInfo(file.name)}else{showError('Java 파일만 업로드 가능합니다.')}});function showFileInfo(fileName){document.getElementById('fileName').textContent=fileName;document.getElementById('fileInfo').style.display='flex';document.getElementById('uploadBox').style.display='none';setTimeout(()=>{reviewCode()},500)}function clearFile(){selectedFile=null;document.getElementById('fileInput').value='';document.getElementById('fileInfo').style.display='none';document.getElementById('uploadBox').style.display='block';document.getElementById('resultsSection').style.display='none';document.getElementById('errorMessage').style.display='none'}async function reviewCode(){if(!selectedFile){showError('파일을 선택해주세요.');return}const loading=document.getElementById('loading'),resultsSection=document.getElementById('resultsSection'),errorMessage=document.getElementById('errorMessage');loading.style.display='block';resultsSection.style.display='none';errorMessage.style.display='none';try{const formData=new FormData();formData.append('file',selectedFile);const response=await fetch('/api/review',{method:'POST',body:formData}),data=await response.json();if(!response.ok){throw new Error(data.error||'리뷰 중 오류가 발생했습니다.')}if(data.success){displayResults(data)}else{showError(data.error||'리뷰 중 오류가 발생했습니다.')}}catch(error){showError(error.message)}finally{loading.style.display='none'}}function displayResults(data){const resultsSection=document.getElementById('resultsSection'),basicAnalysis=document.getElementById('basicAnalysis'),aiReview=document.getElementById('aiReview');const analysis=data.basic_analysis;basicAnalysis.innerHTML='<h2>📊 코드 분석</h2><div class="stats-grid"><div class="stat-item"><div class="stat-label">총 라인 수</div><div class="stat-value">'+analysis.total_lines+'</div></div><div class="stat-item"><div class="stat-label">코드 라인</div><div class="stat-value">'+analysis.code_lines+'</div></div><div class="stat-item"><div class="stat-label">클래스 수</div><div class="stat-value">'+analysis.class_count+'</div></div><div class="stat-item"><div class="stat-label">메서드 수</div><div class="stat-value">'+analysis.method_count+'</div></div><div class="stat-item"><div class="stat-label">주석 비율</div><div class="stat-value">'+analysis.comment_ratio+'%</div></div><div class="stat-item"><div class="stat-label">복잡도</div><div class="stat-value">'+analysis.estimated_complexity+'</div></div></div>';const review=data.ai_review;aiReview.innerHTML='<h2>🤖 코드 리뷰</h2>'+(review.explanation?'<div class="review-section"><h3>📝 코드 설명</h3><p>'+review.explanation+'</p></div>':'')+(review.strengths?'<div class="review-section"><h3>✅ 장점</h3><p>'+review.strengths+'</p></div>':'')+(review.improvements?'<div class="review-section"><h3>🔧 개선점</h3><p>'+review.improvements+'</p></div>':'')+(review.suggestions?'<div class="review-section"><h3>💡 개선 제안</h3><p>'+review.suggestions+'</p></div>':'')+(review.best_practices?'<div class="review-section"><h3>⭐ Best Practice</h3><p>'+review.best_practices+'</p></div>':'')+(review.full_review?'<div class="review-section"><h3>📄 전체 리뷰</h3><p>'+review.full_review+'</p></div>':'');resultsSection.style.display='block'}function showError(message){const errorMessage=document.getElementById('errorMessage');errorMessage.textContent=message;errorMessage.style.display='block'}`;
+  const js = `let selectedFile=null;document.getElementById('fileInput').addEventListener('change',function(e){const file=e.target.files[0];if(file){if(!file.name.endsWith('.java')&&!file.name.endsWith('.jsp')){showError('Java 또는 JSP 파일만 업로드 가능합니다.');return}selectedFile=file;showFileInfo(file.name)}});const uploadArea=document.querySelector('.upload-area');uploadArea.addEventListener('dragover',(e)=>{e.preventDefault();uploadArea.style.background='#e9ecef'});uploadArea.addEventListener('dragleave',()=>{uploadArea.style.background='#f8f9fa'});uploadArea.addEventListener('drop',(e)=>{e.preventDefault();uploadArea.style.background='#f8f9fa';const file=e.dataTransfer.files[0];if(file&&(file.name.endsWith('.java')||file.name.endsWith('.jsp'))){selectedFile=file;document.getElementById('fileInput').files=e.dataTransfer.files;showFileInfo(file.name)}else{showError('Java 또는 JSP 파일만 업로드 가능합니다.')}});function showFileInfo(fileName){document.getElementById('fileName').textContent=fileName;document.getElementById('fileInfo').style.display='flex';document.getElementById('uploadBox').style.display='none';setTimeout(()=>{reviewCode()},500)}function clearFile(){selectedFile=null;document.getElementById('fileInput').value='';document.getElementById('fileInfo').style.display='none';document.getElementById('uploadBox').style.display='block';document.getElementById('resultsSection').style.display='none';document.getElementById('errorMessage').style.display='none'}async function reviewCode(){if(!selectedFile){showError('파일을 선택해주세요.');return}const loading=document.getElementById('loading'),resultsSection=document.getElementById('resultsSection'),errorMessage=document.getElementById('errorMessage');loading.style.display='block';resultsSection.style.display='none';errorMessage.style.display='none';try{const formData=new FormData();formData.append('file',selectedFile);const response=await fetch('/api/review',{method:'POST',body:formData}),data=await response.json();if(!response.ok){throw new Error(data.error||'리뷰 중 오류가 발생했습니다.')}if(data.success){displayResults(data)}else{showError(data.error||'리뷰 중 오류가 발생했습니다.')}}catch(error){showError(error.message)}finally{loading.style.display='none'}}function displayResults(data){const resultsSection=document.getElementById('resultsSection'),basicAnalysis=document.getElementById('basicAnalysis'),aiReview=document.getElementById('aiReview');const analysis=data.basic_analysis;let statsHtml='<h2>📊 코드 분석</h2><div class="stats-grid"><div class="stat-item"><div class="stat-label">총 라인 수</div><div class="stat-value">'+analysis.total_lines+'</div></div><div class="stat-item"><div class="stat-label">코드 라인</div><div class="stat-value">'+analysis.code_lines+'</div></div>';if(analysis.class_count!==undefined){statsHtml+='<div class="stat-item"><div class="stat-label">클래스 수</div><div class="stat-value">'+analysis.class_count+'</div></div>'}if(analysis.method_count!==undefined){statsHtml+='<div class="stat-item"><div class="stat-label">메서드 수</div><div class="stat-value">'+analysis.method_count+'</div></div>'}if(analysis.scriptlet_count!==undefined){statsHtml+='<div class="stat-item"><div class="stat-label">스크립틀릿 수</div><div class="stat-value">'+analysis.scriptlet_count+'</div></div>'}if(analysis.directive_count!==undefined){statsHtml+='<div class="stat-item"><div class="stat-label">지시어 수</div><div class="stat-value">'+analysis.directive_count+'</div></div>'}statsHtml+='<div class="stat-item"><div class="stat-label">주석 비율</div><div class="stat-value">'+analysis.comment_ratio+'%</div></div><div class="stat-item"><div class="stat-label">복잡도</div><div class="stat-value">'+analysis.estimated_complexity+'</div></div></div>';basicAnalysis.innerHTML=statsHtml;const review=data.ai_review;aiReview.innerHTML='<h2>🤖 코드 리뷰</h2>'+(review.explanation?'<div class="review-section"><h3>📝 코드 설명</h3><p>'+review.explanation+'</p></div>':'')+(review.strengths?'<div class="review-section"><h3>✅ 장점</h3><p>'+review.strengths+'</p></div>':'')+(review.improvements?'<div class="review-section"><h3>🔧 개선점</h3><p>'+review.improvements+'</p></div>':'')+(review.suggestions?'<div class="review-section"><h3>💡 개선 제안</h3><p>'+review.suggestions+'</p></div>':'')+(review.best_practices?'<div class="review-section"><h3>⭐ Best Practice</h3><p>'+review.best_practices+'</p></div>':'')+(review.full_review?'<div class="review-section"><h3>📄 전체 리뷰</h3><p>'+review.full_review+'</p></div>':'');resultsSection.style.display='block'}function showError(message){const errorMessage=document.getElementById('errorMessage');errorMessage.textContent=message;errorMessage.style.display='block'}`;
 
   return `<!DOCTYPE html>
 <html lang="ko">
@@ -1812,16 +2362,16 @@ function getHTML() {
 <body>
     <div class="container">
         <header>
-            <h1>☕ Java 코드 리뷰 시스템</h1>
-            <p class="subtitle">AI 기반 코드 분석 및 개선 제안</p>
+            <h1>☕ Java/JSP 코드 리뷰 시스템</h1>
+            <p class="subtitle">AI 기반 코드 분석 및 개선 제안 (맑은프레임워크 가이드 지원)</p>
         </header>
         <div class="upload-section">
             <div class="upload-box" id="uploadBox">
-                <input type="file" id="fileInput" accept=".java" style="display: none;">
+                <input type="file" id="fileInput" accept=".java,.jsp" style="display: none;">
                 <div class="upload-area" onclick="document.getElementById('fileInput').click()">
                     <div class="upload-icon">📁</div>
-                    <p class="upload-text">Java 파일을 클릭하거나 드래그하여 업로드</p>
-                    <p class="upload-hint">.java 파일만 지원됩니다</p>
+                    <p class="upload-text">Java 또는 JSP 파일을 클릭하거나 드래그하여 업로드</p>
+                    <p class="upload-hint">.java 또는 .jsp 파일 지원</p>
                 </div>
             </div>
             <div class="file-info" id="fileInfo" style="display: none;">
