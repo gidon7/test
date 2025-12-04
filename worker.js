@@ -12,6 +12,17 @@ export class JavaCodeAnalyzer {
     
     const structure = this.analyzeStructure(code);
     
+    // 0. 맑은프레임워크 패턴 체크 (맑은프레임워크 Java 코드인 경우)
+    const isMalgnFramework = code.includes('malgnsoft') || code.includes('extends DataObject') || 
+                             code.includes('malgnsoft.db') || code.includes('malgnsoft.util');
+    
+    if (isMalgnFramework) {
+      const frameworkCheck = this.checkMalgnFrameworkPatterns(code, lines);
+      issues.push(...frameworkCheck.issues);
+      suggestions.push(...frameworkCheck.suggestions);
+      strengths.push(...frameworkCheck.strengths);
+    }
+    
     // 1. 코드 품질 체크
     const quality = this.checkCodeQuality(code, lines);
     issues.push(...quality.issues);
@@ -37,10 +48,30 @@ export class JavaCodeAnalyzer {
     // 5. 코드 개선 제안 (실제 코드 기반)
     const java8Fixes = this.findJava8Optimizations(code);
     
+    // 점수 계산
+    let totalScore = 0;
+    const isMalgnFramework = structure.isMalgnFramework;
+    
+    if (isMalgnFramework) {
+      // 맑은프레임워크 패턴 점수
+      issues.forEach(issue => {
+        if (issue && typeof issue === 'object' && issue.score) totalScore += issue.score;
+      });
+      strengths.forEach(strength => {
+        if (strength && typeof strength === 'object' && strength.score) totalScore += strength.score;
+      });
+    }
+    
+    // 보안 점수
+    const securityScore = security.totalChecked ? ((security.totalChecked - secureCodingIssues.length) / security.totalChecked * 100) : 0;
+    totalScore = Math.max(0, Math.min(100, totalScore + securityScore));
+    
+    const level = this.calculateLevel(totalScore);
+    
     return {
       explanation: this.generateExplanation(code, filename, structure),
-      strengths: strengths.length > 0 ? strengths.join('\n\n') : '코드의 좋은 점을 찾는 중...',
-      improvements: issues.length > 0 ? issues.join('\n\n') : '개선할 부분이 없습니다.',
+      strengths: this.formatStrengths(strengths),
+      improvements: this.formatIssues(issues),
       suggestions: this.formatDetailedSuggestions(suggestions, security.suggestions),
       best_practices: this.generateBestPractices(code, structure),
       secure_coding: {
@@ -51,8 +82,91 @@ export class JavaCodeAnalyzer {
         code_fixes: security.codeFixes || []
       },
       full_review: this.generateFullReview(code, filename, structure, issues, suggestions, strengths, secureCodingIssues),
-      code_fixes: [...(security.codeFixes || []), ...java8Fixes]
+      code_fixes: [...(security.codeFixes || []), ...java8Fixes],
+      score: {
+        total: totalScore,
+        framework: isMalgnFramework ? (totalScore - securityScore) : 0,
+        security: securityScore,
+        level: level.name,
+        levelDescription: level.description,
+        nextLevel: level.nextLevel
+      }
     };
+  }
+  
+  calculateLevel(score) {
+    if (score >= 90) {
+      return {
+        name: '고급',
+        description: '맑은프레임워크를 매우 잘 활용하고 있습니다!',
+        nextLevel: null
+      };
+    } else if (score >= 70) {
+      return {
+        name: '중급',
+        description: '맑은프레임워크를 잘 활용하고 있습니다. 조금만 더 개선하면 완벽합니다!',
+        nextLevel: '고급 (90점 이상)'
+      };
+    } else if (score >= 50) {
+      return {
+        name: '초급',
+        description: '맑은프레임워크의 기본을 이해하고 있습니다. 계속 연습하면 더 좋아질 거예요!',
+        nextLevel: '중급 (70점 이상)'
+      };
+    } else {
+      return {
+        name: '신입',
+        description: '맑은프레임워크를 배우는 단계입니다. 아래 개선 사항을 참고하여 차근차근 개선해보세요!',
+        nextLevel: '초급 (50점 이상)'
+      };
+    }
+  }
+  
+  formatStrengths(strengths) {
+    if (strengths.length === 0) return '코드의 좋은 점을 찾는 중...';
+    
+    return strengths.map((strength, idx) => {
+      if (typeof strength === 'string') {
+        return `${idx + 1}. ${strength}`;
+      } else {
+        let formatted = `${idx + 1}. ${strength.message}`;
+        if (strength.explanation) {
+          formatted += `\n   💡 ${strength.explanation}`;
+        }
+        if (strength.score) {
+          formatted += `\n   ⭐ 점수: +${strength.score}점`;
+        }
+        return formatted;
+      }
+    }).join('\n\n');
+  }
+  
+  formatIssues(issues) {
+    if (issues.length === 0) return '개선할 부분이 없습니다. 완벽합니다! 🎉';
+    
+    return issues.map((issue, idx) => {
+      if (typeof issue === 'string') {
+        return `${idx + 1}. ${issue}`;
+      } else {
+        let formatted = `${idx + 1}. [${issue.severity || 'MEDIUM'}] ${issue.message}`;
+        if (issue.explanation) {
+          formatted += `\n   📖 설명: ${issue.explanation}`;
+        }
+        if (issue.why) {
+          formatted += `\n   ❓ 왜 중요한가요?: ${issue.why}`;
+        }
+        if (issue.howToFix) {
+          formatted += `\n   🔧 해결 방법: ${issue.howToFix}`;
+        }
+        if (issue.score) {
+          formatted += `\n   ⚠️ 점수: ${issue.score}점`;
+        }
+        if (issue.beforeCode && issue.afterCode) {
+          formatted += `\n\n   ❌ 현재 코드:\n\`\`\`java\n${issue.beforeCode}\n\`\`\`\n\n   ✅ 수정된 코드:\n\`\`\`java\n${issue.afterCode}\n\`\`\``;
+        }
+        return formatted;
+      }
+    }).join('\n\n');
   }
   
   formatDetailedSuggestions(regularSuggestions, secureSuggestions) {
@@ -84,14 +198,176 @@ export class JavaCodeAnalyzer {
     const classes = code.match(/\bclass\s+(\w+)/g) || [];
     const methods = code.match(/\b(public|private|protected|static)\s+[\w<>\[\]]+\s+(\w+)\s*\([^)]*\)/g) || [];
     const imports = code.match(/^import\s+[\w.*]+;/gm) || [];
+    
+    // 맑은프레임워크 패턴 체크
+    const isMalgnFramework = code.includes('malgnsoft') || code.includes('extends DataObject');
+    const extendsDataObject = code.includes('extends DataObject');
+    const hasDataSet = code.includes('DataSet');
+    const hasMalgnUtil = code.includes('malgnsoft.util') || code.includes('Malgn.');
+    
     return {
       classCount: classes.length,
       methodCount: methods.length,
       importCount: imports.length,
       hasMainMethod: code.includes('public static void main'),
       hasPackage: code.includes('package '),
-      hasComments: code.includes('//') || code.includes('/*')
+      hasComments: code.includes('//') || code.includes('/*'),
+      isMalgnFramework: isMalgnFramework,
+      extendsDataObject: extendsDataObject,
+      hasDataSet: hasDataSet,
+      hasMalgnUtil: hasMalgnUtil
     };
+  }
+  
+  checkMalgnFrameworkPatterns(code, lines) {
+    const issues = [], suggestions = [], strengths = [];
+    
+    // 1. DataObject 상속 체크
+    if (code.includes('extends DataObject')) {
+      strengths.push({
+        type: 'framework',
+        message: 'DataObject를 상속받아 맑은프레임워크 Dao 패턴을 올바르게 사용하고 있습니다.',
+        score: 15,
+        explanation: 'DataObject를 상속받으면 find(), query(), insert(), update(), delete() 등의 메서드를 사용할 수 있습니다.'
+      });
+    } else if (code.includes('malgnsoft')) {
+      issues.push({
+        type: 'framework',
+        severity: 'HIGH',
+        message: 'DataObject를 상속받지 않았습니다.',
+        score: -10,
+        explanation: '맑은프레임워크의 Dao 클래스는 DataObject를 상속받아야 합니다.',
+        beforeCode: `public class OrderItemDao {
+    // 일반 클래스
+}`,
+        afterCode: `import malgnsoft.db.*;
+import malgnsoft.util.*;
+
+public class OrderItemDao extends DataObject {
+    public OrderItemDao() {
+        this.table = "TB_ORDER_ITEM";
+    }
+}`,
+        why: 'DataObject를 상속받아야 find(), query(), insert(), update() 등의 메서드를 사용할 수 있습니다.',
+        howToFix: '클래스 선언에 extends DataObject를 추가하고, 생성자에서 this.table을 설정하세요.'
+      });
+    }
+    
+    // 2. malgnsoft 패키지 import 체크
+    if (code.includes('import malgnsoft.db') || code.includes('import malgnsoft.util')) {
+      strengths.push({
+        type: 'framework',
+        message: '맑은프레임워크 패키지를 올바르게 import하고 있습니다.',
+        score: 5
+      });
+    }
+    
+    // 3. table 필드 설정 체크
+    if (code.includes('extends DataObject')) {
+      const hasTableSetting = code.match(/this\.table\s*=\s*["'][^"']+["']/);
+      if (hasTableSetting) {
+        strengths.push({
+          type: 'framework',
+          message: '생성자에서 table 필드를 올바르게 설정하고 있습니다.',
+          score: 5
+        });
+      } else {
+        issues.push({
+          type: 'framework',
+          severity: 'MEDIUM',
+          message: '생성자에서 table 필드를 설정하지 않았습니다.',
+          score: -5,
+          explanation: 'DataObject를 상속받은 Dao 클래스는 생성자에서 this.table을 설정해야 합니다.',
+          beforeCode: `public OrderItemDao() {
+    // table 설정 없음
+}`,
+          afterCode: `public OrderItemDao() {
+    this.table = "TB_ORDER_ITEM";
+}`,
+          why: 'table 필드를 설정해야 find(), query() 등의 메서드가 올바른 테이블을 사용합니다.',
+          howToFix: '생성자에서 this.table = "테이블명"을 추가하세요.'
+        });
+      }
+    }
+    
+    // 4. DataSet 사용 체크
+    const dataSetDeclarations = code.match(/DataSet\s+\w+/g) || [];
+    if (dataSetDeclarations.length > 0) {
+      strengths.push({
+        type: 'framework',
+        message: `DataSet을 ${dataSetDeclarations.length}번 사용하고 있습니다.`,
+        score: 5
+      });
+      
+      // next() 패턴 체크
+      dataSetDeclarations.forEach(decl => {
+        const match = decl.match(/DataSet\s+(\w+)/);
+        if (match) {
+          const varName = match[1];
+          const nextPattern = new RegExp(`(while|if)\\s*\\([^)]*\\b${varName}\\.next\\(\\)`, 'g');
+          const hasNext = nextPattern.test(code) || new RegExp(`\\b${varName}\\.next\\(\\)`, 'g').test(code);
+          
+          if (hasNext) {
+            strengths.push({
+              type: 'framework',
+              message: `${varName} DataSet에서 next() 메서드를 올바르게 사용하고 있습니다.`,
+              score: 3
+            });
+          }
+        }
+      });
+    }
+    
+    // 5. find(), query() 메서드 사용 체크
+    const findUsage = code.match(/\w+\.find\s*\(/g) || [];
+    const queryUsage = code.match(/\w+\.query\s*\(/g) || [];
+    if (findUsage.length > 0 || queryUsage.length > 0) {
+      strengths.push({
+        type: 'framework',
+        message: `맑은프레임워크의 find() 또는 query() 메서드를 사용하고 있습니다. (find: ${findUsage.length}개, query: ${queryUsage.length}개)`,
+        score: 10
+      });
+    }
+    
+    // 6. item() 메서드 사용 체크 (insert/update 시)
+    const itemUsage = code.match(/\w+\.item\s*\(/g) || [];
+    const insertUsage = code.match(/\w+\.insert\s*\(/g) || [];
+    const updateUsage = code.match(/\w+\.update\s*\(/g) || [];
+    
+    if ((insertUsage.length > 0 || updateUsage.length > 0) && itemUsage.length > 0) {
+      strengths.push({
+        type: 'framework',
+        message: 'item() 메서드를 사용하여 필드 값을 설정하고 있습니다.',
+        score: 5
+      });
+    } else if (insertUsage.length > 0 || updateUsage.length > 0) {
+      issues.push({
+        type: 'framework',
+        severity: 'MEDIUM',
+        message: 'insert() 또는 update() 사용 시 item() 메서드로 필드 값을 설정하는 것을 권장합니다.',
+        score: -3,
+        explanation: '맑은프레임워크에서는 item() 메서드를 사용하여 필드 값을 설정합니다.',
+        beforeCode: `// 직접 필드 설정 (권장하지 않음)
+record.put("field_name", value);
+insert();`,
+        afterCode: `// item() 메서드 사용 (권장)
+this.item("field_name", value);
+this.insert();`,
+        why: 'item() 메서드를 사용하면 타입 안전성과 일관성을 유지할 수 있습니다.',
+        howToFix: 'record.put() 대신 this.item()을 사용하세요.'
+      });
+    }
+    
+    // 7. Malgn 유틸리티 사용 체크
+    if (code.includes('Malgn.') || code.includes('Malgn.time') || code.includes('Malgn.nf')) {
+      strengths.push({
+        type: 'framework',
+        message: 'Malgn 유틸리티를 사용하고 있습니다.',
+        score: 5
+      });
+    }
+    
+    return { issues, suggestions, strengths };
   }
   
   checkCodeQuality(code, lines) {
@@ -1573,6 +1849,21 @@ CompletableFuture<String> future = CompletableFuture.supplyAsync(() -> {
   
   generateExplanation(code, filename, structure) {
     let exp = `이 코드는 ${filename} 파일입니다.\n\n`;
+    
+    // 맑은프레임워크 패턴인 경우
+    if (structure.isMalgnFramework) {
+      exp += `• 맑은프레임워크 기반 Java 코드입니다.\n`;
+      if (structure.extendsDataObject) {
+        exp += `• DataObject를 상속받아 Dao 클래스로 구현되어 있습니다.\n`;
+      }
+      if (structure.hasDataSet) {
+        exp += `• DataSet을 사용하여 데이터를 처리하고 있습니다.\n`;
+      }
+      if (structure.hasMalgnUtil) {
+        exp += `• Malgn 유틸리티를 사용하고 있습니다.\n`;
+      }
+    }
+    
     if (structure.classCount > 0) exp += `• ${structure.classCount}개의 클래스가 정의되어 있습니다.\n`;
     if (structure.methodCount > 0) exp += `• ${structure.methodCount}개의 메서드가 포함되어 있습니다.\n`;
     if (structure.hasMainMethod) exp += `• main 메서드가 있어 실행 가능한 프로그램입니다.\n`;
@@ -1586,12 +1877,29 @@ CompletableFuture<String> future = CompletableFuture.supplyAsync(() -> {
   
   generateBestPractices(code, structure) {
     const practices = [];
-    practices.push(`✅ 패키지 사용: ${structure.hasPackage ? '패키지가 선언되어 있습니다.' : '패키지 선언을 추가하는 것을 권장합니다.'}`);
-    practices.push(`✅ 접근 제어자: 적절한 접근 제어자(private, protected, public)를 사용하세요.`);
-    practices.push(`✅ 네이밍: 변수와 메서드명은 camelCase, 클래스명은 PascalCase를 사용하세요.`);
-    practices.push(`✅ 주석: 복잡한 로직에는 JavaDoc 주석을 추가하세요.`);
-    practices.push(`✅ 예외 처리: 예외가 발생할 수 있는 코드는 적절히 처리하세요.`);
-    practices.push(`✅ 리소스 관리: 파일이나 스트림은 try-with-resources로 관리하세요.`);
+    
+    // 맑은프레임워크 패턴인 경우
+    if (structure.isMalgnFramework) {
+      practices.push(`✅ DataObject 상속: Dao 클래스는 DataObject를 상속받아야 합니다.`);
+      practices.push(`✅ table 필드 설정: 생성자에서 this.table = "테이블명"을 설정하세요.`);
+      practices.push(`✅ malgnsoft 패키지: malgnsoft.db.*와 malgnsoft.util.*를 import하세요.`);
+      practices.push(`✅ DataSet 사용: 조회 결과는 DataSet을 사용하고, while(list.next()) 패턴을 사용하세요.`);
+      practices.push(`✅ find()/query() 메서드: 데이터 조회는 find() 또는 query() 메서드를 사용하세요.`);
+      practices.push(`✅ item() 메서드: insert()/update() 전에 item() 메서드로 필드 값을 설정하세요.`);
+      practices.push(`✅ Malgn 유틸리티: Malgn.time(), Malgn.nf() 등의 유틸리티를 활용하세요.`);
+      practices.push(`✅ 패키지 사용: ${structure.hasPackage ? '패키지가 선언되어 있습니다.' : '패키지 선언을 추가하는 것을 권장합니다.'}`);
+      practices.push(`✅ 주석: 복잡한 로직에는 JavaDoc 주석을 추가하세요.`);
+      practices.push(`✅ 예외 처리: 예외가 발생할 수 있는 코드는 적절히 처리하세요.`);
+    } else {
+      // 일반 Java 코드
+      practices.push(`✅ 패키지 사용: ${structure.hasPackage ? '패키지가 선언되어 있습니다.' : '패키지 선언을 추가하는 것을 권장합니다.'}`);
+      practices.push(`✅ 접근 제어자: 적절한 접근 제어자(private, protected, public)를 사용하세요.`);
+      practices.push(`✅ 네이밍: 변수와 메서드명은 camelCase, 클래스명은 PascalCase를 사용하세요.`);
+      practices.push(`✅ 주석: 복잡한 로직에는 JavaDoc 주석을 추가하세요.`);
+      practices.push(`✅ 예외 처리: 예외가 발생할 수 있는 코드는 적절히 처리하세요.`);
+      practices.push(`✅ 리소스 관리: 파일이나 스트림은 try-with-resources로 관리하세요.`);
+    }
+    
     return practices.join('\n\n');
   }
   
